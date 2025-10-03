@@ -28,7 +28,7 @@ public class UserServiceImpl implements UserService {
     @Override
     public User saveUser(User user){
         String pwd = user.getPassword();
-        if(looksHashed(pwd)){
+        if(pwd != null && ! looksHashed(pwd)){
         user.setPassword(passwordEncoder.encode(pwd));
     }
     if(user.getUsername() !=null){
@@ -42,22 +42,21 @@ public class UserServiceImpl implements UserService {
     @Transactional
     public User registerUser(UserRegistrationDto userData) {
         String username = userData.getUsername().trim().toLowerCase();
-        // 1) проверка занятости (была пропущена закрывающая скобка ')')
         if (userRepository.existsByUsername(username)) {
             throw new IllegalArgumentException(
                     "Username already exists: " + userData.getUsername()
             );
         }
 
-        // 2) DTO -> Entity (всё ДОЛЖНО быть внутри метода)
+
         User user = new User();
         user.setUsername(userData.getUsername());
         user.setPassword(passwordEncoder.encode(userData.getPassword()));
 
 
-        // 3) сохранение
+
         return userRepository.save(user);
-    } // <-- тут метод реально закрывается
+    }
 
     @Override
     @Transactional(readOnly = true)
