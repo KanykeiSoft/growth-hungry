@@ -5,6 +5,8 @@ import com.example.growth_hungry.model.User;
 import java.util.Optional;
 
 public interface UserService {
+    User saveUser(User user);
+
     User registerUser(UserRegistrationDto userData);
     Optional<User> findByUsername(String username);
 

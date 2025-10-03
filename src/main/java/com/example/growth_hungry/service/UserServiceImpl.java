@@ -3,7 +3,6 @@ package com.example.growth_hungry.service;
 import com.example.growth_hungry.dto.UserRegistrationDto;
 import com.example.growth_hungry.model.User;
 import com.example.growth_hungry.repository.UserRepository;
-import com.example.growth_hungry.service.UserService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -22,18 +21,29 @@ public class UserServiceImpl implements UserService {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
     }
+    private boolean looksHashed(String s) {
+        return s != null && s.startsWith("$2"); // BCrypt-хэши начинаются с $2a/$2b/$2y
+    }
 
     @Override
     public User saveUser(User user){
-        user.setPassword(passwordEncoder.encode(user.getPassword()));
+        String pwd = user.getPassword();
+        if(looksHashed(pwd)){
+        user.setPassword(passwordEncoder.encode(pwd));
+    }
+    if(user.getUsername() !=null){
+        user.setUsername(user.getUsername().trim().toLowerCase());
+    }
         return userRepository.save(user);
     }
+
 
     @Override
     @Transactional
     public User registerUser(UserRegistrationDto userData) {
+        String username = userData.getUsername().trim().toLowerCase();
         // 1) проверка занятости (была пропущена закрывающая скобка ')')
-        if (userRepository.existsByUsername(userData.getUsername())) {
+        if (userRepository.existsByUsername(username)) {
             throw new IllegalArgumentException(
                     "Username already exists: " + userData.getUsername()
             );
