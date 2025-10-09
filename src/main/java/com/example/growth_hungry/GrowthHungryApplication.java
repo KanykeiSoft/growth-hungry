@@ -1,6 +1,6 @@
 package com.example.growth_hungry;
 
-import org.springframework.boot.SpringApplication;
+import org.springframework.boot.SpringApplication;	
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
