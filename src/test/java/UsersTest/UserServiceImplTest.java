@@ -67,4 +67,25 @@ class UserServiceImplTest {
         verify(passwordEncoder).encode("rawPass");
         verifyNoMoreInteractions(userRepository, passwordEncoder);
     }
+    @Test
+    void findByUsername_found(){
+        User u = new User();
+        u.setId(10L);
+        u.setUsername("aidar");
+        u.setPassword("encodedPass");
+
+        when(userRepository.findByUsername("aidar")).thenReturn(Optional.of(u));
+        Optional<User> result = userService.findByUsername("aidar");
+
+        assertTrue(result.isPresent());
+        assertEquals(10L, result.get().getId());
+        assertEquals("aidar", result.get().getUsername());
+        verify(userRepository).findByUsername("aidar");
+        verifyNoMoreInteractions(userRepository, passwordEncoder);
+
+        @Test
+
+
+
+    }
 }
