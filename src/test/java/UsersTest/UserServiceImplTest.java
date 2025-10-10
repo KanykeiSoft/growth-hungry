@@ -83,9 +83,16 @@ class UserServiceImplTest {
         verify(userRepository).findByUsername("aidar");
         verifyNoMoreInteractions(userRepository, passwordEncoder);
 
-        @Test
 
+    }
+    @Test
+    void findByUsername_notFound() {
+        when(userRepository.findByUsername("unknown")).thenReturn(Optional.empty());
 
+        Optional<User> result = userService.findByUsername("unknown");
 
+        assertTrue(result.isEmpty());                 // ✅ ничего не найдено
+        verify(userRepository).findByUsername("unknown");
+        verifyNoMoreInteractions(userRepository, passwordEncoder);
     }
 }
