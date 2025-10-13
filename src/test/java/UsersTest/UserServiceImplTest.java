@@ -1,5 +1,6 @@
 package UsersTest;
 
+import com.example.growth_hungry.api.UsernameAlreadyExistsException;
 import com.example.growth_hungry.dto.UserRegistrationDto;
 import com.example.growth_hungry.model.User;
 import com.example.growth_hungry.repository.UserRepository;
@@ -94,5 +95,14 @@ class UserServiceImplTest {
         assertTrue(result.isEmpty());                 // ✅ ничего не найдено
         verify(userRepository).findByUsername("unknown");
         verifyNoMoreInteractions(userRepository, passwordEncoder);
+    }
+
+    @Test
+    void registerUser_usernameTaken_throws(){
+        UserRegistrationDto dto = new UserRegistrationDto();
+        dto.setUsername("aidar");
+        dto.setPassword("rawPass");
+        when(userRepository.existsByUsername("aidar")).thenReturn(true);
+        assertThrows(UsernameAlreadyExistsException.class, ()-> userService.registerUser(dto));
     }
 }

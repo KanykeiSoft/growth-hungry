@@ -6,8 +6,8 @@ import java.util.Optional;
 
 public interface UserService {
     User saveUser(User user);
-
-    User registerUser(UserRegistrationDto userData);
+    User registerUser(UserRegistrationDto dto);
     Optional<User> findByUsername(String username);
-
+    String login(String username, String rawPassword);
 }
+
