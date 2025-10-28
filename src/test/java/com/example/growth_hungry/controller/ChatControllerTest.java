@@ -36,7 +36,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc(addFilters = true)                  // прогоняем наш тестовый фильтр
 @Import({ TestSecurityConfig.class, ChatControllerTest.MockBeans.class })
 @TestPropertySource(properties = { "spring.test.context.failure.threshold=99" })
-class ChatControllerTest {
+class   ChatControllerTest {
 
     @TestConfiguration
     static class MockBeans {
