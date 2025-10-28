@@ -3,6 +3,7 @@ package com.example.growth_hungry.controller;
 
 import com.example.growth_hungry.dto.LoginDto;
 import com.example.growth_hungry.dto.UserRegistrationDto;
+import com.example.growth_hungry.security.JwtUtil;
 import com.example.growth_hungry.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -14,21 +15,30 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/auth") // ← базовый путь для auth
-@RequiredArgsConstructor
 public class AuthController {
-
     private final UserService userService;
+    private final JwtUtil jwtUtil;
 
     @PostMapping("/register")
-    public ResponseEntity<?> register(@Valid  @RequestBody UserRegistrationDto dto) {
-        userService.registerUser(dto); // бросит исключение, если конфликт
-        return ResponseEntity.status(HttpStatus.CREATED)
+    public ResponseEntity<?> register(@Valid @RequestBody UserRegistrationDto dto) {
+        userService.registerUser(dto);
+        return ResponseEntity
+                .status(HttpStatus.CREATED)
                 .body(Map.of("message", "User registered"));
+    }
+
+    public AuthController(UserService userService, JwtUtil jwtUtil) {
+        this.userService = userService;
+        this.jwtUtil = jwtUtil;
     }
 
     @PostMapping("/login")
     public ResponseEntity<?> login(@Valid @RequestBody LoginDto dto) {
-        String token = userService.login(dto.getUsername(), dto.getPassword());
-        return ResponseEntity.ok(Map.of("token", token)); // временно dummy-token
+        // сервис валидирует логин/пароль и кидает исключение, если неверно
+        userService.login(dto.getUsername(), dto.getPassword());
+
+        // генерируем JWT
+        String accessToken = jwtUtil.generate(dto.getUsername());
+        return ResponseEntity.ok(Map.of("accessToken", accessToken));
     }
 }

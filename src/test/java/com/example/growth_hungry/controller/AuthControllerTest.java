@@ -1,5 +1,6 @@
 package com.example.growth_hungry.controller;
 
+
 import com.example.growth_hungry.dto.LoginDto;
 import com.example.growth_hungry.dto.UserRegistrationDto;
 import com.example.growth_hungry.api.UsernameAlreadyExistsException;
@@ -16,6 +17,7 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.test.web.servlet.MockMvc;
+import com.example.growth_hungry.security.JwtUtil;
 
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.mockito.ArgumentMatchers.any;
@@ -29,6 +31,9 @@ class AuthControllerTest {
 
     @Resource
     private MockMvc mockMvc;
+
+    @MockBean
+    private JwtUtil jwtUtil;
 
     @Resource
     private ObjectMapper objectMapper;
@@ -152,18 +157,23 @@ class AuthControllerTest {
     @Test
     @DisplayName("POST /api/auth/login — valid -> 200 OK")
     void login_success() throws Exception {
-        Mockito.when(userService.login(eq("aidar"), eq("StrongPass123!")))
-                .thenReturn("dummy-token");
 
         var dto = new LoginDto();
-        dto.setUsername("aidar");
+        dto.setUsername("aidan");
         dto.setPassword("StrongPass123!");
+
+        // login возвращает НЕ void → мокаем через thenReturn(...)
+        Mockito.when(userService.login(eq("aidan"), eq("StrongPass123!")))
+                .thenReturn("ok");            // если у тебя String — поставь "OK", если User — new User()
+
+        Mockito.when(jwtUtil.generate(eq("aidan")))
+                .thenReturn("dummy-token");
 
         mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(dto)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.token").value("dummy-token"));
+                .andExpect(jsonPath("$.accessToken").value("dummy-token"));
     }
 
     @Test
