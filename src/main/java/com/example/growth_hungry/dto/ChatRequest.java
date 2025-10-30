@@ -21,6 +21,10 @@ public class ChatRequest {
     @Size(max = 100, message = "model is too long")
     private String model;
 
+    public ChatRequest(String message) {
+        this.message = message;
+    }
+
     public ChatRequest() { }
 
     public ChatRequest(String message, String contextId, String systemPrompt, String model) {
@@ -29,6 +33,8 @@ public class ChatRequest {
         this.systemPrompt = systemPrompt;
         this.model = model;
     }
+
+
 
     public String getMessage() { return message; }
     public void setMessage(String message) { this.message = message; }
