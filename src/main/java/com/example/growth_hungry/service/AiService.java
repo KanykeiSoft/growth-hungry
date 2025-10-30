@@ -32,7 +32,7 @@ public class AiService implements ChatService {
 
     @Value("${ai.timeout-ms:15000}")
     private long timeoutMs;
-
+//git commit -m " Add AiService tests and CI config"
     private final ObjectMapper om;
     private HttpClient http; // лениво создадим внутри chat()
 
