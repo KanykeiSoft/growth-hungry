@@ -5,7 +5,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
-
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -14,17 +15,21 @@ import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import org.springframework.stereotype.Service;
 
 /**
  * Низкоуровневый клиент для обращения к Gemini API.
  * Здесь выполняется HTTP-вызов, формируется JSON и парсится ответ.
  * Вся бизнес-логика и обработка ошибок — выше, в ChatServiceImpl.
  */
-@Component
-public class GeminiClient implements AiClient {
 
+
+@Service
+public class GeminiClient implements AiClient {
+    private static final Logger log = LoggerFactory.getLogger(GeminiClient.class);
     private final AiProps props;          // ⚙️ конфигурация (baseUrl, apiKey, model, timeout)
-    private final HttpClient http;        // 🛰️ HTTP-клиент (бин из AiConfig)
+    private final HttpClient http;
+    private final ObjectMapper om;
 
     public GeminiClient(AiProps props, HttpClient http, ObjectMapper om) {
         this.props = props;
@@ -32,10 +37,9 @@ public class GeminiClient implements AiClient {
         this.om = om;
     }
 
-    private final ObjectMapper om;        // 🔄 JSON сериализация/десериализация
-
     @Override
     public String generate(String message, String systemPrompt, String model) throws Exception {
+
         // 1️⃣ Проверка входных данных
         if (message == null || message.isBlank()) {
             throw new IllegalArgumentException("message must not be blank");
@@ -48,9 +52,10 @@ public class GeminiClient implements AiClient {
 
         // 3️⃣ Формируем URL запроса
         final String base = stripTrailingSlash(props.getBaseUrl());
+        final String apiKey = requireNonEmpty(props.getApiKey(), "Missing ai.api-key").trim();
         final String url = String.format(
-                "%s/models/%s:generateContent?key=%s",
-                base, effectiveModel, props.getApiKey()
+                "%s/models/%s:generateContent",
+                base, effectiveModel
         );
 
         // 4️⃣ Формируем JSON-тело запроса
@@ -73,9 +78,11 @@ public class GeminiClient implements AiClient {
         HttpRequest req = HttpRequest.newBuilder(URI.create(url))
                 .timeout(Duration.ofMillis(props.getTimeoutMs()))
                 .header("Content-Type", "application/json")
+                .header("x-goog-api-key", apiKey)
                 .POST(HttpRequest.BodyPublishers.ofString(json))
                 .build();
 
+        log.info("Gemini URL: {}", url);
         // 6️⃣ Отправляем запрос и получаем ответ
         HttpResponse<String> res = http.send(req, HttpResponse.BodyHandlers.ofString());
 
@@ -94,37 +101,40 @@ public class GeminiClient implements AiClient {
 
     // ---------- helpers ----------
 
-    /**
-     * Удаляет завершающий "/" в конце URL, если он есть.
-     */
+
     private static String stripTrailingSlash(String s) {
         if (s == null) return null;
         return s.endsWith("/") ? s.substring(0, s.length() - 1) : s;
     }
 
+
+    private static String requireNonEmpty(String s, String msg) {
+        if (s == null || s.isBlank()) throw new IllegalStateException(msg);
+        return s;
+    }
+
     private String extractText(JsonNode root) {
-        // Join all parts[*].text if they exist
+        // Пробуем самый частый путь
+        JsonNode single = root.at("/candidates/0/content/parts/0/text");
+        if (single.isTextual()) {
+            return single.asText();
+        }
+
+        // Если parts — массив, собираем все тексты
         JsonNode parts = root.at("/candidates/0/content/parts");
         if (parts.isArray()) {
             StringBuilder sb = new StringBuilder();
             for (JsonNode p : parts) {
                 JsonNode t = p.get("text");
                 if (t != null && t.isTextual()) {
+                    if (sb.length() > 0) sb.append('\n');
                     sb.append(t.asText());
                 }
             }
-            if (sb.length() > 0) {
-                return sb.toString();
-            }
+            if (sb.length() > 0) return sb.toString();
         }
 
-        // Fallback: single part path
-        JsonNode single = root.at("/candidates/0/content/parts/0/text");
-        if (single.isTextual()) {
-            return single.asText();
-        }
-
-        // Fallback: direct path
+        // Фоллбек — если ответ в другом формате
         JsonNode direct = root.at("/candidates/0/content/text");
         if (direct.isTextual()) {
             return direct.asText();
@@ -132,6 +142,8 @@ public class GeminiClient implements AiClient {
 
         return null;
     }
-
 }
+
+
+
 

@@ -1,10 +1,12 @@
 package com.example.growth_hungry.config;
 
 import lombok.Data;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.stereotype.Component;
 
-@ConfigurationProperties(prefix = "ai")
 @Data
+@ConfigurationProperties(prefix = "ai")
 public class AiProps {
     public String getBaseUrl() {
         return baseUrl;
@@ -40,6 +42,6 @@ public class AiProps {
 
     private String baseUrl;
     private String apiKey;
-    private String defaultModel;
+    private String defaultModel = "gemini-1.5-flash";;
     private int timeoutMs = 10_000;
 }
