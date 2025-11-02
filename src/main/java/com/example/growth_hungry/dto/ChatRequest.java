@@ -1,8 +1,5 @@
 package com.example.growth_hungry.dto;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Size;
-import jakarta.validation.constraints.Max;
-import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.*;
 
 
 public class ChatRequest {
@@ -16,7 +13,10 @@ public class ChatRequest {
 
     @Size(max = 2000, message = "systemPrompt is too long")
     private String systemPrompt;
-
+//
+//    @DecimalMin(value = "0.0", message = "temperature must be >= 0.0")
+//    @DecimalMax(value = "1.0", message = "temperature must be <= 1.0")
+//    private Double temperature; // 👈 новое поле
 
     @Size(max = 100, message = "model is too long")
     private String model;
