@@ -3,6 +3,8 @@ package com.example.growth_hungry.service;
 import com.example.growth_hungry.config.AiProps;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.slf4j.Logger;
@@ -27,7 +29,8 @@ import org.springframework.stereotype.Service;
 @Service
 public class GeminiClient implements AiClient {
     private static final Logger log = LoggerFactory.getLogger(GeminiClient.class);
-    private final AiProps props;          // ⚙️ конфигурация (baseUrl, apiKey, model, timeout)
+
+    private final AiProps props;          // baseUrl, apiKey, defaultModel, timeout
     private final HttpClient http;
     private final ObjectMapper om;
 
@@ -39,26 +42,20 @@ public class GeminiClient implements AiClient {
 
     @Override
     public String generate(String message, String systemPrompt, String model) throws Exception {
-
-        // 1️⃣ Проверка входных данных
+        // 1) Валидация
         if (message == null || message.isBlank()) {
             throw new IllegalArgumentException("message must not be blank");
         }
 
-        // 2️⃣ Определяем модель: если не указана — берём дефолтную из пропертей
+        // 2) Модель
         final String effectiveModel = (model == null || model.isBlank())
                 ? props.getDefaultModel()
                 : model;
 
-        // 3️⃣ Формируем URL запроса
-        final String base = stripTrailingSlash(props.getBaseUrl());
-        final String apiKey = requireNonEmpty(props.getApiKey(), "Missing ai.api-key").trim();
-        final String url = String.format(
-                "%s/models/%s:generateContent",
-                base, effectiveModel
-        );
+        // 3) URL (с ?key=...)
+        final String url = buildUrl(effectiveModel);
 
-        // 4️⃣ Формируем JSON-тело запроса
+        // 4) Тело запроса
         Map<String, Object> user = Map.of(
                 "role", "user",
                 "parts", List.of(Map.of("text", message))
@@ -74,76 +71,85 @@ public class GeminiClient implements AiClient {
 
         final String json = om.writeValueAsString(root);
 
-        // 5️⃣ Создаём HTTP-запрос
+        // 5) HTTP-запрос (ключ в query, заголовок с ключом НЕ нужен)
         HttpRequest req = HttpRequest.newBuilder(URI.create(url))
                 .timeout(Duration.ofMillis(props.getTimeoutMs()))
                 .header("Content-Type", "application/json")
-                .header("x-goog-api-key", apiKey)
                 .POST(HttpRequest.BodyPublishers.ofString(json))
                 .build();
 
         log.info("Gemini URL: {}", url);
-        // 6️⃣ Отправляем запрос и получаем ответ
+
+        // 6) Отправка
         HttpResponse<String> res = http.send(req, HttpResponse.BodyHandlers.ofString());
 
-        // 7️⃣ Проверяем статус
+        // 7) Статус
         if (res.statusCode() < 200 || res.statusCode() >= 300) {
             throw new RuntimeException("Gemini HTTP " + res.statusCode() + ": " + res.body());
         }
 
-        // 8️⃣ Парсим JSON и достаём текст
+        // 8) Парсинг
         JsonNode node = om.readTree(res.body());
         String text = extractText(node);
 
-        // 9️⃣ Возвращаем результат
+        // 9) Результат
         return (text == null || text.isBlank()) ? "" : text.trim();
     }
 
-    // ---------- helpers ----------
+    /** Строит URL и гарантирует /v1beta и ?key=... */
+    private String buildUrl(String model) {
+        String base = stripTrailingSlash(requireNonEmpty(props.getBaseUrl(), "Missing ai.base-url"));
 
+        // если /v1beta ещё не добавлен — добавляем
+        if (!base.endsWith("/v1beta")) {
+            base = base + "/v1beta";
+        }
+
+        String encodedKey = URLEncoder.encode(
+                requireNonEmpty(props.getApiKey(), "Missing ai.api-key").trim(),
+                StandardCharsets.UTF_8
+        );
+
+        return base + "/models/" + model + ":generateContent?key=" + encodedKey;
+    }
+
+    // ---------- helpers ----------
 
     private static String stripTrailingSlash(String s) {
         if (s == null) return null;
         return s.endsWith("/") ? s.substring(0, s.length() - 1) : s;
     }
 
-
     private static String requireNonEmpty(String s, String msg) {
         if (s == null || s.isBlank()) throw new IllegalStateException(msg);
         return s;
     }
 
+    /** Склеивает ВСЕ parts[].text без лишних разделителей. */
     private String extractText(JsonNode root) {
-        // Пробуем самый частый путь
+        // Частый случай: один текст
         JsonNode single = root.at("/candidates/0/content/parts/0/text");
         if (single.isTextual()) {
-            return single.asText();
+            // но это покроется и общим случаем; оставим для быстрого пути
         }
 
-        // Если parts — массив, собираем все тексты
+        // Общий случай: parts[] с несколькими кусками
         JsonNode parts = root.at("/candidates/0/content/parts");
-        if (parts.isArray()) {
+        if (parts.isArray() && parts.size() > 0) {
             StringBuilder sb = new StringBuilder();
             for (JsonNode p : parts) {
                 JsonNode t = p.get("text");
                 if (t != null && t.isTextual()) {
-                    if (sb.length() > 0) sb.append('\n');
-                    sb.append(t.asText());
+                    sb.append(t.asText()); // без \n, чтобы совпасть с "Hello, world!"
                 }
             }
             if (sb.length() > 0) return sb.toString();
         }
 
-        // Фоллбек — если ответ в другом формате
+        // Фоллбек
         JsonNode direct = root.at("/candidates/0/content/text");
-        if (direct.isTextual()) {
-            return direct.asText();
-        }
+        if (direct.isTextual()) return direct.asText();
 
         return null;
     }
 }
-
-
-
-
