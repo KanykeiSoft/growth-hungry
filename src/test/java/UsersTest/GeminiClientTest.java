@@ -48,7 +48,7 @@ class GeminiClientTest {
     void setUp() {
         when(props.getBaseUrl()).thenReturn("https://generativelanguage.googleapis.com/v1beta");
         when(props.getApiKey()).thenReturn("API_KEY");
-        when(props.getDefaultModel()).thenReturn("gemini-1.5-flash");
+        when(props.getDefaultModel()).thenReturn("gemini-2.5-flash");
         when(props.getTimeoutMs()).thenReturn(5_000);
         client = new GeminiClient(props, http, om);
     }
@@ -71,7 +71,7 @@ class GeminiClientTest {
         when(httpResponse.body()).thenReturn("{}");
         when(om.readTree(anyString())).thenReturn(okNode);
 
-        String out = client.generate("Hi", "You are helpful.", "gemini-1.5-pro");
+        String out = client.generate("Hi", "You are helpful.", "gemini-2.5-flash");
 
         assertThat(out).isEqualTo("Hello, Aidar!");
 
@@ -81,7 +81,7 @@ class GeminiClientTest {
         assertThat(sent.timeout()).contains(Duration.ofMillis(5_000));
         URI uri = sent.uri();
         assertThat(uri.toString())
-                .isEqualTo("https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=API_KEY");
+                .isEqualTo("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=API_KEY");
 
         Map<String,Object> root = bodyCap.getValue();
         assertThat(root).containsKeys("contents");
@@ -113,7 +113,7 @@ class GeminiClientTest {
         String out = client.generate("Hi", null, null);
         assertThat(out).isEqualTo("OK");
         assertThat(reqCap.getValue().uri().toString())
-                .contains("/models/gemini-1.5-flash:generateContent");
+                .contains("/models/gemini-2.5-flash:generateContent");
     }
 
     @Test
@@ -135,10 +135,10 @@ class GeminiClientTest {
         ArgumentCaptor<HttpRequest> reqCap = ArgumentCaptor.forClass(HttpRequest.class);
         when(http.send(reqCap.capture(), any(HttpResponse.BodyHandler.class))).thenReturn(httpResponse);
 
-        String out = client.generate("Hi", null, "m");
+        String out = client.generate("Hi", null, null);
         assertThat(out).isEqualTo("OK");
         assertThat(reqCap.getValue().uri().toString())
-                .isEqualTo("https://generativelanguage.googleapis.com/v1beta/models/m:generateContent?key=API_KEY");
+                .isEqualTo("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=API_KEY");
     }
 
     @Test

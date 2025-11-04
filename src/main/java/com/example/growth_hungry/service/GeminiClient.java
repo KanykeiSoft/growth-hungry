@@ -110,7 +110,12 @@ public class GeminiClient implements AiClient {
                 StandardCharsets.UTF_8
         );
 
-        return base + "/models/" + model + ":generateContent?key=" + encodedKey;
+        // 💡 удаляем возможный префикс "models/" у модели
+        String cleanModel = (model != null && model.startsWith("models/"))
+                ? model.substring("models/".length())
+                : model;
+
+        return base + "/models/" + cleanModel + ":generateContent?key=" + encodedKey;
     }
 
     // ---------- helpers ----------

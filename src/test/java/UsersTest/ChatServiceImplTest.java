@@ -31,7 +31,7 @@ class ChatServiceImplTest {
         req = new ChatRequest();
         req.setMessage("Hello AI");
         req.setSystemPrompt("You are helpful.");
-        req.setModel("gemini-1.5-flash");
+        req.setModel("gemini-2.5-flash");
         req.setContextId("ctx-1");
     }
 
@@ -56,7 +56,7 @@ class ChatServiceImplTest {
     @Test
     @DisplayName("Success: calls aiClient.generate(...) and returns a valid reply")
     void chat_success_returnsReply_andPassesParams() throws Exception {
-        when(aiClient.generate("Hello AI", "You are helpful.", "gemini-1.5-flash"))
+        when(aiClient.generate("Hello AI", "You are helpful.", "gemini-2.5-flash"))
                 .thenReturn("Hi, human!");
 
         ChatResponse r = chatService.chat(req);
@@ -64,9 +64,9 @@ class ChatServiceImplTest {
         assertThat(r).isNotNull();
         assertThat(r.getReply()).isEqualTo("Hi, human!");
         assertThat(r.getContextId()).isEqualTo("ctx-1");
-        assertThat(r.getModel()).isEqualTo("gemini-1.5-flash");
+        assertThat(r.getModel()).isEqualTo("gemini-2.5-flash");
 
-        verify(aiClient).generate("Hello AI", "You are helpful.", "gemini-1.5-flash");
+        verify(aiClient).generate("Hello AI", "You are helpful.", "gemini-2.5-flash");
         verifyNoMoreInteractions(aiClient);
     }
 
@@ -95,7 +95,7 @@ class ChatServiceImplTest {
         ChatResponse r = chatService.chat(req);
 
         assertThat(r.getReply()).isEqualTo("(Empty response)");
-        verify(aiClient).generate(eq("Hello AI"), eq("You are helpful."), eq("gemini-1.5-flash"));
+        verify(aiClient).generate(eq("Hello AI"), eq("You are helpful."), eq("gemini-2.5-flash"));
     }
 
     @Test

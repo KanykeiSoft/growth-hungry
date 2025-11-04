@@ -6,7 +6,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 @Service
-public class ChatServiceImpl implements ChatService{
+public class    ChatServiceImpl implements ChatService{
 
     // ADD inside class:
     private static final Logger log = LoggerFactory.getLogger(ChatServiceImpl.class);
