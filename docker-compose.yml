@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:16
+    container_name: pg_local
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: gh_user
+      POSTGRES_PASSWORD: gh_pass
+      POSTGRES_DB: gh_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "gh_user"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  pgdata:
