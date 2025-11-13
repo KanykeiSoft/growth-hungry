@@ -15,3 +15,4 @@ The goal is to practice Git, version control, and basic backend setup.
 ## 🚀 How to Run
 ```bash
 mvn spring-boot:run
+trigger CI

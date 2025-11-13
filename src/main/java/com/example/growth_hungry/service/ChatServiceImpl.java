@@ -58,7 +58,7 @@ public class ChatServiceImpl implements ChatService {
 
         final String systemPrompt =
                 (req.getSystemPrompt() == null || req.getSystemPrompt().isBlank())
-                        ? "You are Growth Hungry assistant. Help user with learning and productivity."
+                        ? "You are Growth Hungry assistant. Help user with learning and productivity!"
                         : req.getSystemPrompt();
 
         // если модель не указана — подставляем дефолтную
