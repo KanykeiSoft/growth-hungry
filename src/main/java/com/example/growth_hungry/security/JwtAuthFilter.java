@@ -28,6 +28,14 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                                     FilterChain filterChain)
             throws ServletException, IOException {
 
+        String path = request.getServletPath();
+        if ("OPTIONS".equalsIgnoreCase(request.getMethod())
+                || path.startsWith("/api/auth/")
+                || "/actuator/health".equals(path)) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
         String header = request.getHeader("Authorization");
         String token = (header != null && header.startsWith("Bearer "))
                 ? header.substring(7)
@@ -35,12 +43,9 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
         if (token != null && SecurityContextHolder.getContext().getAuthentication() == null) {
             if (jwtUtil.isValid(token)) {
-                String subject = jwtUtil.getSubject(token); // username/ID из токена
-
+                String subject = jwtUtil.getSubject(token);
                 var auth = new UsernamePasswordAuthenticationToken(
-                        subject,
-                        null,
-                        AuthorityUtils.NO_AUTHORITIES // достаточно для .authenticated()
+                        subject, null, AuthorityUtils.NO_AUTHORITIES
                 );
                 auth.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(auth);
@@ -50,7 +55,3 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         filterChain.doFilter(request, response);
     }
 }
-
-
-
-
