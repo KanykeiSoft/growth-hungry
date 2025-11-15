@@ -1,7 +1,6 @@
 package com.example.growth_hungry.api;
 
 
-import java.time.Instant;
 import java.util.Map;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -19,7 +18,7 @@ public class ApiExceptionHandler {
         var details = ex.getBindingResult().getFieldErrors().stream()
                 .map(fe -> Map.of("field", fe.getField(), "msg", fe.getDefaultMessage()))
                 .toList();
-        return new ErrorResponse("VALIDATION_ERROR", "Invalid input", details, Instant.now());
+        return new ErrorResponse("VALIDATION_ERROR", "Invalid input", details);
     }
 
     @ExceptionHandler(UsernameAlreadyExistsException.class)

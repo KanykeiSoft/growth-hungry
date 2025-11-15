@@ -58,14 +58,14 @@ public class ChatServiceImpl implements ChatService {
 
         final String systemPrompt =
                 (req.getSystemPrompt() == null || req.getSystemPrompt().isBlank())
-                        ? "You are Growth Hungry assistant. Help user with learning and productivity!"
-                        : req.getSystemPrompt();
+                        ? null
+                        : req.getSystemPrompt().trim(); // можно ещё и trim
 
-        // если модель не указана — подставляем дефолтную
+        // если модель не указана — подставляем дефолтную (пока null)
         final String requestedModel =
                 (req.getModel() == null || req.getModel().isBlank())
-                        ? "gemini-2.5-flash"
-                        : req.getModel();
+                        ? null
+                        : req.getModel().trim();
 
         final Long requestedSessionId = req.getChatSessionId();
 
@@ -89,7 +89,6 @@ public class ChatServiceImpl implements ChatService {
                 // существующая сессия
                 session = sessionRepo.findByIdAndUserId(requestedSessionId, user.getId())
                         .orElseThrow(() -> new IllegalArgumentException("ChatSession not found: " + requestedSessionId));
-                session.setUpdatedAt(Instant.now());
 
                 // проверяем, что сессия принадлежит текущему пользователю
                 if (session.getUser() == null || !session.getUser().getId().equals(user.getId())) {
@@ -108,20 +107,15 @@ public class ChatServiceImpl implements ChatService {
             userMessage.setCreatedAt(Instant.now());
             messageRepo.save(userMessage);
 
-            // 5. Вызываем AI-клиент
-            String answer;
-            try {
-                answer = aiClient.generate(message, systemPrompt, requestedModel);
-            } catch (Exception e) {
-                log.error("AI client error", e);
-                answer = "Error: AI service unavailable.";
-            }
+            // 5. Вызываем AI-клиент — БЕЗ ВНУТРЕННЕГО try/catch
+            String answer = aiClient.generate(message, systemPrompt, requestedModel);
 
+            // 6. Обрабатываем пустой ответ
             if (answer == null || answer.isBlank()) {
                 answer = "(Empty response)";
             }
 
-            // 6. Сохраняем ответ ассистента
+            // 7. Сохраняем ответ ассистента
             ChatMessage aiMessage = new ChatMessage();
             aiMessage.setSession(session);
             aiMessage.setUser(null);                       // ассистент, не пользователь
@@ -130,20 +124,22 @@ public class ChatServiceImpl implements ChatService {
             aiMessage.setCreatedAt(Instant.now());
             messageRepo.save(aiMessage);
 
-            // 7. Обновляем updatedAt у сессии
+            // 8. Обновляем updatedAt у сессии
             session.setUpdatedAt(Instant.now());
             sessionRepo.save(session);
 
-            // 8. Формируем ChatResponse
+            // 9. Формируем ChatResponse
             ChatResponse resp = new ChatResponse(answer);
-            resp.setContextId(session.getId());    // этот id фронт будет слать как chatSessionId
+            resp.setContextId(session.getId());    // фронт будет слать как chatSessionId
             resp.setModel(requestedModel);
             return resp;
 
         } catch (IllegalArgumentException badInput) {
+            // сюда попадёт IllegalArgumentException из aiClient.generate(...)
             log.warn("AI request error: {}", badInput.getMessage());
             return new ChatResponse("Error calling AI: " + badInput.getMessage());
         } catch (Exception ex) {
+            // сюда попадёт RuntimeException("upstream boom") и любые другие
             log.error("AI invocation error", ex);
             return new ChatResponse("Error calling AI: " + ex.getMessage());
         }
