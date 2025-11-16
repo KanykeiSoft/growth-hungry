@@ -11,6 +11,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 @Entity
+@Table(name = "chat_session")
 public class ChatSession {
 
     @Id
