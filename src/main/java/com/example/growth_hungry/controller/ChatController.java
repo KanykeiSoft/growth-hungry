@@ -32,4 +32,6 @@ public class ChatController {
         ChatResponse resp = chatService.chat(req);
         return ResponseEntity.ok(resp);
     }
+
+
 }

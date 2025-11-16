@@ -14,4 +14,5 @@ public interface ChatSessionRepository extends JpaRepository<ChatSession, Long> 
     // (на будущее) список сессий пользователя
     List<ChatSession> findAllByUserIdOrderByUpdatedAtDesc(Long userId);
 
+
 }
