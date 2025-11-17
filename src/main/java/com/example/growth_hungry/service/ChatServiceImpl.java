@@ -1,5 +1,6 @@
 package com.example.growth_hungry.service;
 
+import com.example.growth_hungry.dto.ChatMessageDto;
 import com.example.growth_hungry.dto.ChatRequest;
 import com.example.growth_hungry.dto.ChatResponse;
 import com.example.growth_hungry.dto.ChatSessionDto;
@@ -204,6 +205,24 @@ public class ChatServiceImpl implements ChatService {
         }
         return result;
 
+
+    }
+    public List<ChatMessageDto> getSessionMessages(Long sessionId){
+        User user = getCurrentUser();
+        ChatSession session = sessionRepo.findByIdAndUserId(sessionId, user.getId())
+                .orElseThrow(() ->
+                new RuntimeException("Session not found or access denied: " + sessionId));
+        List<ChatMessage> messages = messageRepo.findBySessionIdOrderByCreatedAtAsc(session.getId());
+        List<ChatMessageDto> result = new ArrayList<>();
+        for(ChatMessage msg: messages){
+            ChatMessageDto dto = new ChatMessageDto();
+            dto.setId(msg.getId());
+            dto.setRole(msg.getRole().name());
+            dto.setContent(msg.getContent());
+            dto.setCreatedAt(msg.getCreatedAt());
+            result.add(dto);
+        }
+        return result;
 
     }
 }
