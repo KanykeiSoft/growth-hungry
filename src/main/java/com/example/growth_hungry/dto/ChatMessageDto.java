@@ -4,6 +4,7 @@ import java.time.Instant;
 
 public class ChatMessageDto {
     private Long id;
-    private String title;
-    private Instant updatedAt;
+    private String role;
+    private String content;
+    private Instant createdAt;
 }

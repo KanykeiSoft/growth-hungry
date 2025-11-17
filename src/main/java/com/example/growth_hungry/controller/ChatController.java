@@ -2,6 +2,7 @@ package com.example.growth_hungry.controller;
 
 import com.example.growth_hungry.dto.ChatRequest;
 import com.example.growth_hungry.dto.ChatResponse;
+import com.example.growth_hungry.dto.ChatSessionDto;
 import com.example.growth_hungry.service.ChatService;
 import jakarta.validation.Valid;
 import java.security.Principal;
@@ -32,6 +33,8 @@ public class ChatController {
         ChatResponse resp = chatService.chat(req);
         return ResponseEntity.ok(resp);
     }
+//    @GetMapping("sessions")
+//    public ResponseEntity<List<ChatSessionDto>>
 
 
 }

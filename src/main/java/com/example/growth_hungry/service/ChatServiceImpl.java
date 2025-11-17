@@ -2,6 +2,7 @@ package com.example.growth_hungry.service;
 
 import com.example.growth_hungry.dto.ChatRequest;
 import com.example.growth_hungry.dto.ChatResponse;
+import com.example.growth_hungry.dto.ChatSessionDto;
 import com.example.growth_hungry.model.User;
 import com.example.growth_hungry.model.chat.ChatMessage;
 import com.example.growth_hungry.model.chat.ChatSession;
@@ -10,6 +11,8 @@ import com.example.growth_hungry.repository.ChatMessageRepository;
 import com.example.growth_hungry.repository.ChatSessionRepository;
 import com.example.growth_hungry.repository.UserRepository;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -18,6 +21,8 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 import org.springframework.transaction.annotation.Transactional;
+
+import javax.swing.*;
 
 @Service
 public class ChatServiceImpl implements ChatService {
@@ -59,9 +64,9 @@ public class ChatServiceImpl implements ChatService {
         final String systemPrompt =
                 (req.getSystemPrompt() == null || req.getSystemPrompt().isBlank())
                         ? null
-                        : req.getSystemPrompt().trim(); // можно ещё и trim
+                        : req.getSystemPrompt().trim();
 
-        // если модель не указана — подставляем дефолтную (пока null)
+
         final String requestedModel =
                 (req.getModel() == null || req.getModel().isBlank())
                         ? null
@@ -184,5 +189,21 @@ public class ChatServiceImpl implements ChatService {
         }
         String trimmed = userMessage.trim();
         return trimmed.length() > 30 ? trimmed.substring(0, 30) + "…" : trimmed;
+    }
+    @Override
+    public List<ChatSessionDto> getUserSessions(){
+        User user = getCurrentUser();
+        List<ChatSession> sessions = sessionRepo.findAllByUserIdOrderByUpdatedAtDesc(user.getId());
+        List<ChatSessionDto> result = new ArrayList<>();
+        for (ChatSession session : sessions){
+            ChatSessionDto chatDto = new ChatSessionDto();
+            chatDto.setId(session.getId());
+            chatDto.setTitle(session.getTitle());
+            chatDto.setUpdatedAt(session.getUpdatedAt());
+            result.add(chatDto);
+        }
+        return result;
+
+
     }
 }
