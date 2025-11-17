@@ -8,12 +8,6 @@ public class ChatMessageDto {
     private String content;
     private Instant createdAt;
 
-    public ChatMessageDto(Long id, String role, String content, Instant createdAt) {
-        this.id = id;
-        this.role = role;
-        this.content = content;
-        this.createdAt = createdAt;
-    }
 
     public Long getId() {
         return id;
