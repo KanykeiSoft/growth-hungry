@@ -1,11 +1,13 @@
 package com.example.growth_hungry.controller;
 
+import com.example.growth_hungry.dto.ChatMessageDto;
 import com.example.growth_hungry.dto.ChatRequest;
 import com.example.growth_hungry.dto.ChatResponse;
 import com.example.growth_hungry.dto.ChatSessionDto;
 import com.example.growth_hungry.service.ChatService;
 import jakarta.validation.Valid;
 import java.security.Principal;
+import java.util.List;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -33,8 +35,17 @@ public class ChatController {
         ChatResponse resp = chatService.chat(req);
         return ResponseEntity.ok(resp);
     }
-//    @GetMapping("sessions")
-//    public ResponseEntity<List<ChatSessionDto>>
+    @GetMapping("/chat/sessions")
+    public ResponseEntity<List<ChatSessionDto>> getUserSessions(){
+        List<ChatSessionDto> sessions = chatService.getUserSessions();
+        return ResponseEntity.ok(sessions);
+    }
+
+    @GetMapping("/chat/sessions/{sessionId}")
+    public ResponseEntity<List<ChatMessageDto>> getSessionMessages(@PathVariable Long sessionId){
+        List<ChatMessageDto> messages = chatService.getSessionMessages(sessionId);
+        return ResponseEntity.ok(messages);
+    }
 
 
 }

@@ -29,6 +29,12 @@
 			<scope>runtime</scope>
 		</dependency>
 
+		<dependency>
+			<groupId>org.springframework.security</groupId>
+			<artifactId>spring-security-test</artifactId>
+			<scope>test</scope>
+		</dependency>
+
 		<!-- Web/MVC -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
