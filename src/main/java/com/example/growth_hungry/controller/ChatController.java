@@ -8,41 +8,46 @@ import com.example.growth_hungry.service.ChatService;
 import jakarta.validation.Valid;
 import java.security.Principal;
 import java.util.List;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 
 @RestController
-@RequestMapping("/api")
-public class ChatController {
+    @RequestMapping("/api")
+@Slf4j
+    public class ChatController {
 
-    private final ChatService chatService;
+        private final ChatService chatService;
 
-    public ChatController(ChatService chatService) {
-        this.chatService = chatService;
-    }
-
-    @PostMapping("/chat")
-    public ResponseEntity<ChatResponse> chat(@Valid @RequestBody ChatRequest req, Principal principal) {
-
-        if (req == null || req.getMessage() == null || req.getMessage().isBlank()) {
-            return ResponseEntity.badRequest()
-                    .body(new ChatResponse("Error: message must not be blank"));
+        public ChatController(ChatService chatService) {
+            this.chatService = chatService;
         }
 
-        String username = principal.getName();
-        ChatResponse resp = chatService.chat(req);
-        return ResponseEntity.ok(resp);
-    }
-    @GetMapping("/chat/sessions")
-    public ResponseEntity<List<ChatSessionDto>> getUserSessions(){
-        List<ChatSessionDto> sessions = chatService.getUserSessions();
-        return ResponseEntity.ok(sessions);
-    }
+        @PostMapping("/chat")
+        public ResponseEntity<ChatResponse> chat(@Valid @RequestBody ChatRequest req, Principal principal) {
+
+            if (req == null || req.getMessage() == null || req.getMessage().isBlank()) {
+                return ResponseEntity.badRequest()
+                        .body(new ChatResponse("Error: message must not be blank"));
+            }
+
+            String username = principal.getName();
+            ChatResponse resp = chatService.chat(req);
+            return ResponseEntity.ok(resp);
+        }
+        @GetMapping("/chat/sessions")
+        public ResponseEntity<List<ChatSessionDto>> getUserSessions(){
+
+            List<ChatSessionDto> sessions = chatService.getUserSessions();
+            return ResponseEntity.ok(sessions);
+        }
 
     @GetMapping("/chat/sessions/{sessionId}")
-    public ResponseEntity<List<ChatMessageDto>> getSessionMessages(@PathVariable Long sessionId){
+    public ResponseEntity<List<ChatMessageDto>> getSessionMessages(
+            @PathVariable Long sessionId
+    ){
         List<ChatMessageDto> messages = chatService.getSessionMessages(sessionId);
         return ResponseEntity.ok(messages);
     }

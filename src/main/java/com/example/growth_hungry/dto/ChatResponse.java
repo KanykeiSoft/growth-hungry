@@ -2,7 +2,7 @@ package com.example.growth_hungry.dto;
 
 public class ChatResponse {
     private String reply;
-    private Long contextId;
+    private Long chatSessionId;
     private String model;
 
     // Пустой конструктор (нужен для сериализации)
@@ -10,9 +10,9 @@ public class ChatResponse {
     }
 
     // Полный конструктор
-    public ChatResponse(String reply, Long contextId, String model) {
+    public ChatResponse(String reply, Long chatSessionId, String model) {
         this.reply = reply;
-        this.contextId = contextId;
+        this.chatSessionId = chatSessionId;
         this.model = model;
     }
 
@@ -30,12 +30,12 @@ public class ChatResponse {
         this.reply = reply;
     }
 
-    public Long getContextId() {
-        return contextId;
+    public Long getChatSessionId() {
+        return chatSessionId;
     }
 
-    public void setContextId(Long contextId) {
-        this.contextId = contextId;
+    public void setChatSessionId(Long chatSessionId) {
+        this.chatSessionId = chatSessionId;
     }
 
     public String getModel() {

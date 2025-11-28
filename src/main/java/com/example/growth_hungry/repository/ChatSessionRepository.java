@@ -9,10 +9,10 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import javax.swing.*;
 
 public interface ChatSessionRepository extends JpaRepository<ChatSession, Long> {
-    Optional<ChatSession> findByIdAndUserId(Long id, Long userId);
+    Optional<ChatSession> findByIdAndUser_Id(Long id, Long userId);
 
     // (на будущее) список сессий пользователя
-        List<ChatSession> findAllByUserIdOrderByUpdatedAtDesc(Long userId);
+        List<ChatSession> findAllByUser_IdOrderByUpdatedAtDesc(Long userId);
 
 
 }
