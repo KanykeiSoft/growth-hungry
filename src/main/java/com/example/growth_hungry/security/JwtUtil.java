@@ -5,6 +5,9 @@ import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
+import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -12,9 +15,8 @@ import java.security.Key;
 import java.time.Instant;
 import java.util.Date;
 
-import javax.crypto.SecretKey;
-
 @Component
+@Slf4j
 public class JwtUtil {
 
     private final Key key;                 // секретный ключ для подписи JWT
@@ -22,7 +24,8 @@ public class JwtUtil {
     private final String issuer;           // кто выдал токен
     private final String audience;         // для кого токен
 
-    private static final long CLOCK_SKEW_SECONDS = 60; // допуск по времени
+    private static final long CLOCK_SKEW_SECONDS = 60;
+    private static final Logger log = LoggerFactory.getLogger(JwtUtil.class);// допуск по времени
 
     public JwtUtil(
             @Value("${jwt.secret}") String base64Secret,
@@ -39,7 +42,7 @@ public class JwtUtil {
     /** Создаём access-token */
     public String generate(String subject) {
         Instant now = Instant.now();
-        return Jwts.builder()
+        String token = Jwts.builder()
                 .setSubject(subject)
                 .setIssuer(issuer)
                 .setAudience(audience)
@@ -47,6 +50,9 @@ public class JwtUtil {
                 .setExpiration(Date.from(now.plusSeconds(ttlMinutes * 60)))
                 .signWith(key, SignatureAlgorithm.HS256)
                 .compact();
+
+        log.debug("JWT generated for subject={}", subject);
+        return token;
     }
 
     /** Достаём пользователя из sub */
@@ -57,9 +63,21 @@ public class JwtUtil {
     /** True, если подпись, время и issuer/audience корректны */
     public boolean isValid(String token) {
         try {
-            parseClaims(token);
+            Claims c = parseClaims(token);
+            log.info("✅ JWT OK: sub={}, iss={}, aud={}, exp={}",
+                    c.getSubject(),
+                    c.getIssuer(),
+                    c.getAudience(),
+                    c.getExpiration());
             return true;
+        } catch (io.jsonwebtoken.ExpiredJwtException ex) {
+            log.warn("⏰ JWT expired: {}", ex.getMessage());
+            return false;
+        } catch (io.jsonwebtoken.SignatureException ex) {
+            log.warn("🔐 JWT signature invalid: {}", ex.getMessage());
+            return false;
         } catch (Exception ex) {
+            log.warn("⚠️ JWT invalid: {} ({})", ex.getMessage(), ex.getClass().getSimpleName());
             return false;
         }
     }
@@ -69,12 +87,8 @@ public class JwtUtil {
         return Jwts.parserBuilder()
                 .setSigningKey(key)
                 .setAllowedClockSkewSeconds(CLOCK_SKEW_SECONDS)
-                .requireIssuer(issuer)
-                .requireAudience(audience)
                 .build()
                 .parseClaimsJws(token)
                 .getBody();
     }
-
-
 }

@@ -93,7 +93,7 @@ public class ChatServiceImpl implements ChatService {
                 log.info("Created new ChatSession id={} for user id={}", session.getId(), user.getId());
             } else {
                 // существующая сессия
-                session = sessionRepo.findByIdAndUserId(requestedSessionId, user.getId())
+                session = sessionRepo.findByIdAndUser_Id(requestedSessionId, user.getId())
                         .orElseThrow(() -> new IllegalArgumentException("ChatSession not found: " + requestedSessionId));
 
                 // проверяем, что сессия принадлежит текущему пользователю
@@ -136,7 +136,7 @@ public class ChatServiceImpl implements ChatService {
 
             // 9. Формируем ChatResponse
             ChatResponse resp = new ChatResponse(answer);
-            resp.setContextId(session.getId());    // фронт будет слать как chatSessionId
+            resp.setChatSessionId(session.getId());   // фронт будет слать как chatSessionId
             resp.setModel(requestedModel);
             return resp;
 
@@ -194,7 +194,8 @@ public class ChatServiceImpl implements ChatService {
     @Override
     public List<ChatSessionDto> getUserSessions(){
         User user = getCurrentUser();
-        List<ChatSession> sessions = sessionRepo.findAllByUserIdOrderByUpdatedAtDesc(user.getId());
+        List<ChatSession> sessions = sessionRepo.findAllByUser_IdOrderByUpdatedAtDesc( user.getId());
+
         List<ChatSessionDto> result = new ArrayList<>();
         for (ChatSession session : sessions){
             ChatSessionDto chatDto = new ChatSessionDto();
@@ -209,7 +210,7 @@ public class ChatServiceImpl implements ChatService {
     }
     public List<ChatMessageDto> getSessionMessages(Long sessionId){
         User user = getCurrentUser();
-        ChatSession session = sessionRepo.findByIdAndUserId(sessionId, user.getId())
+        ChatSession session = sessionRepo.findByIdAndUser_Id(sessionId, user.getId())
                 .orElseThrow(() ->
                 new RuntimeException("Session not found or access denied: " + sessionId));
         List<ChatMessage> messages = messageRepo.findBySessionIdOrderByCreatedAtAsc(session.getId());

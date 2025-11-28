@@ -2,6 +2,7 @@ package com.example.growth_hungry.config;
 
 import com.example.growth_hungry.security.JwtAuthFilter;
 import java.net.http.HttpClient;
+import java.util.List;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -11,6 +12,9 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 @Configuration
 @EnableWebSecurity
@@ -31,11 +35,13 @@ public class WebSecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()        // preflight
                         .requestMatchers("/api/auth/**").permitAll()                  // login/register
-                        .requestMatchers("/actuator/health").permitAll()              // healthcheck, если надо
-                        .anyRequest().authenticated()                       // всё остальное — с токеном
-
-                ).addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+                        .requestMatchers("/actuator/health").permitAll()              // healthcheck
+                        .requestMatchers("/error").permitAll()                        // 👈 ДОБАВИЛИ ЭТО
+                        .anyRequest().authenticated()                                 // всё остальное — с токеном
+                )
+                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
 }
+
