@@ -46,8 +46,6 @@ public class ChatRequest {
         this.model = model;
     }
 
-    public void setContextId(String s) {
 
-    }
 }
 

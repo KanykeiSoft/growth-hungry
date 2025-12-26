@@ -23,7 +23,6 @@ import java.io.IOException;
 public class JwtAuthFilter extends OncePerRequestFilter {
 
     private final JwtUtil jwtUtil;
-    private static final Logger log = LoggerFactory.getLogger(JwtAuthFilter.class);
 
     public JwtAuthFilter(JwtUtil jwtUtil) {
         this.jwtUtil = jwtUtil;
@@ -39,60 +38,50 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         String path   = request.getServletPath();
         String header = request.getHeader(HttpHeaders.AUTHORIZATION);
 
-        log.info(" {} {} | Authorization={}", method, path, header);
+        log.info("{} {} | Authorization={}", method, path, header);
 
-        // 1. Открытые пути
+        // Skip open endpoints (auth, health, preflight)
         if ("OPTIONS".equalsIgnoreCase(method)
                 || path.startsWith("/api/auth/")
                 || "/actuator/health".equals(path)) {
-            log.debug("Skipping JwtAuthFilter for open path {}", path);
             filterChain.doFilter(request, response);
             return;
         }
 
-        // 2. Нет Bearer-токена
+        // Reject if Authorization header is missing or invalid
         if (header == null || !header.startsWith("Bearer ")) {
-            log.warn("⛔ No Bearer token for protected path {}", path);
+            log.warn("No Bearer token for protected path {}", path);
             filterChain.doFilter(request, response);
             return;
         }
 
-        // 3. Достаём токен без "Bearer "
         String token = header.substring(7).trim();
-        log.debug("📥 Extracted JWT (first 20 chars): {}...",
-                token.length() > 20 ? token.substring(0, 20) : token);
 
-        // 4. Если уже есть аутентификация — не трогаем
+        // Do not override existing authentication
         if (SecurityContextHolder.getContext().getAuthentication() != null) {
-            log.debug("🔁 SecurityContext already has auth: {}",
-                    SecurityContextHolder.getContext().getAuthentication());
             filterChain.doFilter(request, response);
             return;
         }
 
         try {
-            // 5. Валидируем токен
-            if (!jwtUtil.isValid(token)) {
-                log.warn("❌ jwtUtil.isValid(token) returned FALSE for path {}", path);
-            } else {
-                String subject = jwtUtil.getSubject(token);
-                log.info("🔐 JWT valid, subject={}", subject);
+            // Validate token and extract subject (email)
+            if (jwtUtil.isValid(token)) {
+                String email = jwtUtil.getSubject(token);
 
-                var auth = new UsernamePasswordAuthenticationToken(
-                        subject,
-                        null,
-                        AuthorityUtils.NO_AUTHORITIES
-                );
+                UsernamePasswordAuthenticationToken auth =
+                        new UsernamePasswordAuthenticationToken(
+                                email,
+                                null,
+                                AuthorityUtils.NO_AUTHORITIES
+                        );
+
                 auth.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-
                 SecurityContextHolder.getContext().setAuthentication(auth);
-                log.info("👤 SecurityContext set for user={}", subject);
             }
         } catch (Exception e) {
-            log.error("💥 Error while processing JWT: {}", e.getMessage(), e);
+            log.error("Error while processing JWT: {}", e.getMessage(), e);
         }
 
-        // 6. Продолжаем цепочку фильтров
         filterChain.doFilter(request, response);
     }
 }

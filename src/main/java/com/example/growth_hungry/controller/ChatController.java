@@ -11,46 +11,45 @@ import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
-
 @RestController
-    @RequestMapping("/api")
+@RequestMapping("/api/chat")
 @Slf4j
-    public class ChatController {
+public class ChatController {
 
-        private final ChatService chatService;
+    private final ChatService chatService;
 
-        public ChatController(ChatService chatService) {
-            this.chatService = chatService;
-        }
-
-        @PostMapping("/chat")
-        public ResponseEntity<ChatResponse> chat(@Valid @RequestBody ChatRequest req, Principal principal) {
-
-            if (req == null || req.getMessage() == null || req.getMessage().isBlank()) {
-                return ResponseEntity.badRequest()
-                        .body(new ChatResponse("Error: message must not be blank"));
-            }
-
-            String username = principal.getName();
-            ChatResponse resp = chatService.chat(req);
-            return ResponseEntity.ok(resp);
-        }
-        @GetMapping("/chat/sessions")
-        public ResponseEntity<List<ChatSessionDto>> getUserSessions(){
-
-            List<ChatSessionDto> sessions = chatService.getUserSessions();
-            return ResponseEntity.ok(sessions);
-        }
-
-    @GetMapping("/chat/sessions/{sessionId}")
-    public ResponseEntity<List<ChatMessageDto>> getSessionMessages(
-            @PathVariable Long sessionId
-    ){
-        List<ChatMessageDto> messages = chatService.getSessionMessages(sessionId);
-        return ResponseEntity.ok(messages);
+    public ChatController(ChatService chatService) {
+        this.chatService = chatService;
     }
 
+
+    @PostMapping
+    public ResponseEntity<ChatResponse> chat(@Valid @RequestBody ChatRequest req) {
+
+        // Validate that the message is not empty
+        if (req == null || req.getMessage() == null || req.getMessage().isBlank()) {
+            return ResponseEntity.badRequest()
+                    .body(new ChatResponse("Error: message must not be blank"));
+        }
+
+        // Delegate processing to the service layer
+        return ResponseEntity.ok(chatService.chat(req));
+    }
+
+    @GetMapping("/sessions")
+    public ResponseEntity<List<ChatSessionDto>> getUserSessions(Authentication auth) {
+        String email = auth.getName();
+        return ResponseEntity.ok(chatService.getUserSessions(email));
+    }
+
+    @GetMapping("/sessions/{sessionId}")
+    public ResponseEntity<List<ChatMessageDto>> getSessionMessages(@PathVariable Long sessionId,
+                                                                   Authentication auth) {
+        String email = auth.getName();
+        return ResponseEntity.ok(chatService.getSessionMessages(sessionId, email));
+    }
 
 }

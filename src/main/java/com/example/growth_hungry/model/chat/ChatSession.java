@@ -21,6 +21,7 @@ public class ChatSession {
     private String title;
 
     @ManyToOne(optional = false)
+    @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
     private Instant createdAt;
@@ -57,11 +58,8 @@ public class ChatSession {
     public List<ChatMessage> getMessages() { return messages; }
     public void setMessages(List<ChatMessage> messages) { this.messages = messages; }
 
-    // Удобный метод: добавить сообщение
-    public void addMessage(ChatMessage msg) {
-        messages.add(msg);
-        msg.setSession(this);
-    }
+
+
 }
 
 

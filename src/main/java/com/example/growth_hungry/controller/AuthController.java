@@ -19,6 +19,11 @@ public class AuthController {
     private final UserService userService;
     private final JwtUtil jwtUtil;
 
+    public AuthController(UserService userService, JwtUtil jwtUtil) {
+        this.userService = userService;
+        this.jwtUtil = jwtUtil;
+    }
+
     @PostMapping("/register")
     public ResponseEntity<?> register(@Valid @RequestBody UserRegistrationDto dto) {
         userService.registerUser(dto);
@@ -27,18 +32,9 @@ public class AuthController {
                 .body(Map.of("message", "User registered"));
     }
 
-    public AuthController(UserService userService, JwtUtil jwtUtil) {
-        this.userService = userService;
-        this.jwtUtil = jwtUtil;
-    }
-
     @PostMapping("/login")
     public ResponseEntity<?> login(@Valid @RequestBody LoginDto dto) {
-        // сервис валидирует логин/пароль и кидает исключение, если неверно
-        userService.login(dto.getUsername(), dto.getPassword());
-
-        // генерируем JWT
-        String accessToken = jwtUtil.generate(dto.getUsername());
+        String accessToken = userService.login(dto.getEmail(), dto.getPassword());
         return ResponseEntity.ok(Map.of("accessToken", accessToken));
     }
 }

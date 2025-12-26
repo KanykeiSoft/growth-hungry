@@ -11,6 +11,6 @@ public interface AiClient {
      * @throws IllegalArgumentException при некорректных аргументах (например, пустой message)
      * @throws Exception                при сетевых/низкоуровневых ошибках (HTTP/JSON/таймаут)
      */
-    String generate(String message, String systemPrompt, String model) throws Exception;
+    String generate(String message, String systemPrompt, String model) ;
 
 }

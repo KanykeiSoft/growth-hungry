@@ -41,7 +41,7 @@ public class GeminiClient implements AiClient {
     }
 
     @Override
-    public String generate(String message, String systemPrompt, String model) throws Exception {
+    public String generate(String message, String systemPrompt, String model) {
         // 1) Валидация
         if (message == null || message.isBlank()) {
             throw new IllegalArgumentException("message must not be blank");
@@ -50,7 +50,7 @@ public class GeminiClient implements AiClient {
         // 2) Модель
         final String effectiveModel = (model == null || model.isBlank())
                 ? props.getDefaultModel()
-                : model;
+                : model.trim();
 
         // 3) URL (с ?key=...)
         final String url = buildUrl(effectiveModel);
@@ -66,12 +66,17 @@ public class GeminiClient implements AiClient {
 
         if (systemPrompt != null && !systemPrompt.isBlank()) {
             root.put("systemInstruction",
-                    Map.of("parts", List.of(Map.of("text", systemPrompt))));
+                    Map.of("parts", List.of(Map.of("text", systemPrompt.trim()))));
         }
 
-        final String json = om.writeValueAsString(root);
+        final String json;
+        try {
+            json = om.writeValueAsString(root);
+        } catch (Exception e) { // JsonProcessingException
+            throw new RuntimeException("Failed to serialize Gemini request", e);
+        }
 
-        // 5) HTTP-запрос (ключ в query, заголовок с ключом НЕ нужен)
+        // 5) HTTP-запрос
         HttpRequest req = HttpRequest.newBuilder(URI.create(url))
                 .timeout(Duration.ofMillis(props.getTimeoutMs()))
                 .header("Content-Type", "application/json")
@@ -81,7 +86,15 @@ public class GeminiClient implements AiClient {
         log.info("Gemini URL: {}", url);
 
         // 6) Отправка
-        HttpResponse<String> res = http.send(req, HttpResponse.BodyHandlers.ofString());
+        final HttpResponse<String> res;
+        try {
+            res = http.send(req, HttpResponse.BodyHandlers.ofString());
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Gemini call interrupted", e);
+        } catch (Exception e) { // IOException
+            throw new RuntimeException("Gemini call failed", e);
+        }
 
         // 7) Статус
         if (res.statusCode() < 200 || res.statusCode() >= 300) {
@@ -89,7 +102,13 @@ public class GeminiClient implements AiClient {
         }
 
         // 8) Парсинг
-        JsonNode node = om.readTree(res.body());
+        final JsonNode node;
+        try {
+            node = om.readTree(res.body());
+        } catch (Exception e) { // JsonProcessingException
+            throw new RuntimeException("Failed to parse Gemini response JSON", e);
+        }
+
         String text = extractText(node);
 
         // 9) Результат

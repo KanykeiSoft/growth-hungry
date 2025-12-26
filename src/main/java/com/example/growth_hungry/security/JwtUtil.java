@@ -40,7 +40,7 @@ public class JwtUtil {
     }
 
     /** Создаём access-token */
-    public String generate(String subject) {
+    public String generateToken(String subject) {
         Instant now = Instant.now();
         String token = Jwts.builder()
                 .setSubject(subject)

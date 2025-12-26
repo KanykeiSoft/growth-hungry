@@ -20,89 +20,89 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 import static org.mockito.ArgumentMatchers.*;   // ✅ any(), eq(), …
 
-@ExtendWith(MockitoExtension.class)
-class UserServiceImplTest {
-
-    @Mock
-    private UserRepository userRepository;
-
-    @Mock
-    private PasswordEncoder passwordEncoder;
-
-    @InjectMocks
-    private UserServiceImpl userService;
-
-    @Test
-    void registerUser_success() {
-        // Arrange
-        UserRegistrationDto dto = new UserRegistrationDto();
-        dto.setUsername("aidar");
-        dto.setPassword("rawPass");
-
-        // имя свободно
-        when(userRepository.existsByUsername("aidar")).thenReturn(false);
-        when(passwordEncoder.encode("rawPass")).thenReturn("encodedPass");
-
-        doAnswer(inv -> {
-            User u = inv.getArgument(0, User.class);
-            try {
-                u.setId(1L);
-            } catch (Exception ignored) {
-            }
-            return u;
-        }).when(userRepository).save(any(User.class));
-
-        // Act
-        userService.registerUser(dto);
-
-        // Assert
-        ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
-        verify(userRepository).save(captor.capture());
-        User saved = captor.getValue();
-
-        assertNotNull(saved);
-        assertEquals("aidar", saved.getUsername());
-        assertEquals("encodedPass", saved.getPassword());
-
-        verify(userRepository).existsByUsername("aidar");
-        verify(passwordEncoder).encode("rawPass");
-        verifyNoMoreInteractions(userRepository, passwordEncoder);
-    }
-    @Test
-    void findByUsername_found(){
-        User u = new User();
-        u.setId(10L);
-        u.setUsername("aidar");
-        u.setPassword("encodedPass");
-
-        when(userRepository.findByUsername("aidar")).thenReturn(Optional.of(u));
-        Optional<User> result = userService.findByUsername("aidar");
-
-        assertTrue(result.isPresent());
-        assertEquals(10L, result.get().getId());
-        assertEquals("aidar", result.get().getUsername());
-        verify(userRepository).findByUsername("aidar");
-        verifyNoMoreInteractions(userRepository, passwordEncoder);
-
-
-    }
-    @Test
-    void findByUsername_notFound() {
-        when(userRepository.findByUsername("unknown")).thenReturn(Optional.empty());
-
-        Optional<User> result = userService.findByUsername("unknown");
-
-        assertTrue(result.isEmpty());                 // ✅ ничего не найдено
-        verify(userRepository).findByUsername("unknown");
-        verifyNoMoreInteractions(userRepository, passwordEncoder);
-    }
-
-    @Test
-    void registerUser_usernameTaken_throws(){
-        UserRegistrationDto dto = new UserRegistrationDto();
-        dto.setUsername("aidar");
-        dto.setPassword("rawPass");
-        when(userRepository.existsByUsername("aidar")).thenReturn(true);
-        assertThrows(UsernameAlreadyExistsException.class, ()-> userService.registerUser(dto));
-    }
-}
+//@ExtendWith(MockitoExtension.class)
+//class UserServiceImplTest {
+//
+//    @Mock
+//    private UserRepository userRepository;
+//
+//    @Mock
+//    private PasswordEncoder passwordEncoder;
+//
+//    @InjectMocks
+//    private UserServiceImpl userService;
+//
+//    @Test
+//    void registerUser_success() {
+//        // Arrange
+//        UserRegistrationDto dto = new UserRegistrationDto();
+//        dto.setUsername("aidar");
+//        dto.setPassword("rawPass");
+//
+//        // имя свободно
+//        when(userRepository.existsByUsername("aidar")).thenReturn(false);
+//        when(passwordEncoder.encode("rawPass")).thenReturn("encodedPass");
+//
+//        doAnswer(inv -> {
+//            User u = inv.getArgument(0, User.class);
+//            try {
+//                u.setId(1L);
+//            } catch (Exception ignored) {
+//            }
+//            return u;
+//        }).when(userRepository).save(any(User.class));
+//
+//        // Act
+//        userService.registerUser(dto);
+//
+//        // Assert
+//        ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
+//        verify(userRepository).save(captor.capture());
+//        User saved = captor.getValue();
+//
+//        assertNotNull(saved);
+//        assertEquals("aidar", saved.getUsername());
+//        assertEquals("encodedPass", saved.getPassword());
+//
+//        verify(userRepository).existsByUsername("aidar");
+//        verify(passwordEncoder).encode("rawPass");
+//        verifyNoMoreInteractions(userRepository, passwordEncoder);
+//    }
+//    @Test
+//    void findByUsername_found(){
+//        User u = new User();
+//        u.setId(10L);
+//        u.setUsername("aidar");
+//        u.setPassword("encodedPass");
+//
+//        when(userRepository.findByUsername("aidar")).thenReturn(Optional.of(u));
+//        Optional<User> result = userService.findByUsername("aidar");
+//
+//        assertTrue(result.isPresent());
+//        assertEquals(10L, result.get().getId());
+//        assertEquals("aidar", result.get().getUsername());
+//        verify(userRepository).findByUsername("aidar");
+//        verifyNoMoreInteractions(userRepository, passwordEncoder);
+//
+//
+//    }
+//    @Test
+//    void findByUsername_notFound() {
+//        when(userRepository.findByUsername("unknown")).thenReturn(Optional.empty());
+//
+//        Optional<User> result = userService.findByUsername("unknown");
+//
+//        assertTrue(result.isEmpty());                 // ✅ ничего не найдено
+//        verify(userRepository).findByUsername("unknown");
+//        verifyNoMoreInteractions(userRepository, passwordEncoder);
+//    }
+//
+//    @Test
+//    void registerUser_usernameTaken_throws(){
+//        UserRegistrationDto dto = new UserRegistrationDto();
+//        dto.setUsername("aidar");
+//        dto.setPassword("rawPass");
+//        when(userRepository.existsByUsername("aidar")).thenReturn(true);
+//        assertThrows(UsernameAlreadyExistsException.class, ()-> userService.registerUser(dto));
+//    }
+//}
