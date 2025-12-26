@@ -33,5 +33,12 @@ public class ApiExceptionHandler {
         return ErrorResponse.of("BAD_CREDENTIALS", "Username or password is incorrect");
     }
 
+    @ExceptionHandler(EmailAlreadyExistsException.class)
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public ErrorResponse handleEmailConflict(EmailAlreadyExistsException ex) {
+        return ErrorResponse.of("EMAIL_EXISTS", ex.getMessage());
     }
+
+
+}
 

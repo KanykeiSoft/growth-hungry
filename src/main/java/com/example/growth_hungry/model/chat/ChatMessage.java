@@ -35,10 +35,7 @@ public class ChatMessage {
     @JoinColumn(name = "session_id", nullable = false)
     private ChatSession session;
 
-    // 👇 НЕОБЯЗАТЕЛЬНО, но удобно: кто автор сообщения
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id")
-    private User user;
+
 
     public ChatMessage() {
     }
@@ -77,10 +74,6 @@ public class ChatMessage {
         return session;
     }
 
-    public User getUser() {
-        return user;
-    }
-
     // ======= SETTERS =======
     public void setContent(String content) {
         this.content = content;
@@ -98,8 +91,6 @@ public class ChatMessage {
         this.session = session;
     }
 
-    public void setUser(User user) {
-        this.user = user;
-    }
+
 }
 

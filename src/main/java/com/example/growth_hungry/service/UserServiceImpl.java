@@ -1,9 +1,12 @@
 package com.example.growth_hungry.service;
 
+import com.example.growth_hungry.api.EmailAlreadyExistsException;
 import com.example.growth_hungry.api.UsernameAlreadyExistsException;
 import com.example.growth_hungry.dto.UserRegistrationDto;
 import com.example.growth_hungry.model.User;
 import com.example.growth_hungry.repository.UserRepository;
+import com.example.growth_hungry.security.JwtUtil;
+import java.util.regex.Pattern;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,11 +20,17 @@ public class UserServiceImpl implements UserService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final JwtUtil jwtUtil;
+    private static final Pattern BCRYPT_PATTERN =
+            Pattern.compile("^\\$2[aby]\\$\\d{2}\\$[./A-Za-z0-9]{53}$");
+
+
 
     public UserServiceImpl(UserRepository userRepository,
-                           PasswordEncoder passwordEncoder) {
+                           PasswordEncoder passwordEncoder, JwtUtil jwtUtil) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
+        this.jwtUtil = jwtUtil;
     }
 
     /** trim + toLowerCase; пустые строки -> null */
@@ -31,24 +40,21 @@ public class UserServiceImpl implements UserService {
         return t.isEmpty() ? null : t.toLowerCase();
     }
 
-    /** Грубая проверка, что пароль уже BCrypt ($2a/$2b/$2y ...) */
-    private static boolean looksHashed(String s) {
-        return s != null && s.startsWith("$2");
-    }
 
+    private static boolean looksHashed(String value) {
+        return value != null && BCRYPT_PATTERN.matcher(value).matches();
+    }
     @Override
     public User saveUser(User user) {
-        // 1) Пароль: если «сырой» — захешировать
+        // 1) if raw password then encoding
+
         String pwd = user.getPassword();
         if (pwd != null && !looksHashed(pwd)) {
             user.setPassword(passwordEncoder.encode(pwd));
         }
 
-        // 2) Username/Email: нормализуем одинаково
         user.setUsername(norm(user.getUsername()));
         user.setEmail(norm(user.getEmail()));
-
-        // 3) Сохраняем
         return userRepository.save(user);
     }
 
@@ -61,10 +67,10 @@ public class UserServiceImpl implements UserService {
         if (username != null && userRepository.existsByUsername(username)) {
             throw new UsernameAlreadyExistsException("Username already exists: " + dto.getUsername());
         }
-        // Если добавишь проверку email — делай по нормализованному значению:
-        // if (email != null && userRepository.existsByEmail(email)) {
-        //     throw new EmailAlreadyExistsException("Email already exists: " + dto.getEmail());
-        // }
+
+         if (email != null && userRepository.existsByEmail(email)) {
+             throw new EmailAlreadyExistsException("Email already exists: " + dto.getEmail());
+         }
 
         User user = new User();
         user.setUsername(username);
@@ -76,17 +82,19 @@ public class UserServiceImpl implements UserService {
 
     @Override
     @Transactional(readOnly = true)
-    public Optional<User> findByUsername(String username) {
-        return userRepository.findByUsername(norm(username)); // ← нормализуем вход
+    public Optional<User> findByEmail(String email) {
+        return userRepository.findByEmail(norm(email));
     }
 
     @Override
-    public String login(String username, String rawPassword) {
-        var user = userRepository.findByUsername(norm(username))
+    @Transactional(readOnly = true)
+    public String login(String email, String rawPassword) {
+        String normalizedEmail = norm(email);
+        var user = userRepository.findByEmail(normalizedEmail)
                 .orElseThrow(() -> new BadCredentialsException("Invalid credentials"));
         if (!passwordEncoder.matches(rawPassword, user.getPassword())) {
             throw new BadCredentialsException("Invalid credentials");
         }
-        return "dummy-token"; // здесь позже вернёшь реальный JWT/refresh
+        return jwtUtil.generateToken(user.getEmail());
     }
 }

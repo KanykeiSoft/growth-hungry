@@ -7,6 +7,6 @@ import java.util.List;
 
 public interface ChatService {
     ChatResponse chat(ChatRequest req);
-    List<ChatSessionDto> getUserSessions();
-    List<ChatMessageDto> getSessionMessages(Long sessionId);
+    List<ChatSessionDto> getUserSessions(String userEmail);
+    List<ChatMessageDto> getSessionMessages(Long sessionId, String userEmail);
 }

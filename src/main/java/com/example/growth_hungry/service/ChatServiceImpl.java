@@ -22,6 +22,8 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.security.access.AccessDeniedException;
+
 
 import javax.swing.*;
 
@@ -29,6 +31,7 @@ import javax.swing.*;
 public class ChatServiceImpl implements ChatService {
 
     private static final Logger log = LoggerFactory.getLogger(ChatServiceImpl.class);
+    private static final String DEFAULT_MODEL = "gemini-2.5-flash";
 
     private final ChatSessionRepository sessionRepo;
     private final ChatMessageRepository messageRepo;
@@ -43,187 +46,138 @@ public class ChatServiceImpl implements ChatService {
         this.messageRepo = messageRepo;
         this.userRepository = userRepository;
         this.aiClient = aiClient;
-
     }
 
-//    @Value("${ai.default-model:gemini-2.5-flash}")
-//    private String defaultModel;
-
+    @Override
     @Transactional
-    @Override
     public ChatResponse chat(ChatRequest req) {
-        // 1. Валидация входных данных
-        if (req == null) {
-            return new ChatResponse("Error: empty request");
+        // 0) validate request
+        if (req == null) throw new IllegalArgumentException("Request must not be null");
+
+        String message = req.getMessage() == null ? null : req.getMessage().trim();
+        if (message == null || message.isBlank()) {
+            throw new IllegalArgumentException("Message must not be blank");
         }
-        if (req.getMessage() == null || req.getMessage().isBlank()) {
-            return new ChatResponse("Error: message must not be blank");
-        }
 
-        final String message = req.getMessage().trim();
-
-        final String systemPrompt =
-                (req.getSystemPrompt() == null || req.getSystemPrompt().isBlank())
-                        ? null
-                        : req.getSystemPrompt().trim();
-
-
-        final String requestedModel =
-                (req.getModel() == null || req.getModel().isBlank())
-                        ? null
-                        : req.getModel().trim();
-
-        final Long requestedSessionId = req.getChatSessionId();
-
-        try {
-            // 2. Определяем текущего пользователя (из токена / SecurityContext)
-            User user = getCurrentUser();
-
-            // 3. Находим или создаём ChatSession
-            ChatSession session;
-            if (requestedSessionId == null) {
-                // новая сессия
-                session = new ChatSession();
-                session.setUser(user);
-                session.setTitle(buildDefaultTitle(message));
-                session.setCreatedAt(Instant.now());
-                session.setUpdatedAt(Instant.now());
-
-                session = sessionRepo.save(session);
-                log.info("Created new ChatSession id={} for user id={}", session.getId(), user.getId());
-            } else {
-                // существующая сессия
-                session = sessionRepo.findByIdAndUser_Id(requestedSessionId, user.getId())
-                        .orElseThrow(() -> new IllegalArgumentException("ChatSession not found: " + requestedSessionId));
-
-                // проверяем, что сессия принадлежит текущему пользователю
-                if (session.getUser() == null || !session.getUser().getId().equals(user.getId())) {
-                    throw new SecurityException("Access denied to ChatSession: " + requestedSessionId);
-                }
-
-                session.setUpdatedAt(Instant.now());
-            }
-
-            // 4. Сохраняем сообщение пользователя
-            ChatMessage userMessage = new ChatMessage();
-            userMessage.setSession(session);
-            userMessage.setUser(user);
-            userMessage.setRole(MessageRole.USER);
-            userMessage.setContent(message);
-            userMessage.setCreatedAt(Instant.now());
-            messageRepo.save(userMessage);
-
-            // 5. Вызываем AI-клиент — БЕЗ ВНУТРЕННЕГО try/catch
-            String answer = aiClient.generate(message, systemPrompt, requestedModel);
-
-            // 6. Обрабатываем пустой ответ
-            if (answer == null || answer.isBlank()) {
-                answer = "(Empty response)";
-            }
-
-            // 7. Сохраняем ответ ассистента
-            ChatMessage aiMessage = new ChatMessage();
-            aiMessage.setSession(session);
-            aiMessage.setUser(null);                       // ассистент, не пользователь
-            aiMessage.setRole(MessageRole.ASSISTANT);
-            aiMessage.setContent(answer);
-            aiMessage.setCreatedAt(Instant.now());
-            messageRepo.save(aiMessage);
-
-            // 8. Обновляем updatedAt у сессии
-            session.setUpdatedAt(Instant.now());
-            sessionRepo.save(session);
-
-            // 9. Формируем ChatResponse
-            ChatResponse resp = new ChatResponse(answer);
-            resp.setChatSessionId(session.getId());   // фронт будет слать как chatSessionId
-            resp.setModel(requestedModel);
-            return resp;
-
-        } catch (IllegalArgumentException badInput) {
-            // сюда попадёт IllegalArgumentException из aiClient.generate(...)
-            log.warn("AI request error: {}", badInput.getMessage());
-            return new ChatResponse("Error calling AI: " + badInput.getMessage());
-        } catch (Exception ex) {
-            // сюда попадёт RuntimeException("upstream boom") и любые другие
-            log.error("AI invocation error", ex);
-            return new ChatResponse("Error calling AI: " + ex.getMessage());
-        }
-    }
-
-    // -------- вспомогательные методы --------
-
-    private User getCurrentUser() {
+        // 1) current user from SecurityContext
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-
         if (auth == null || !auth.isAuthenticated()) {
-            throw new RuntimeException("User is not authenticated");
+            throw new AccessDeniedException("User is not authenticated");
         }
 
-        Object principal = auth.getPrincipal();
-
-        // если Spring подставил анонимного пользователя
-        if (principal instanceof String str && "anonymousUser".equals(str)) {
-            throw new RuntimeException("User is not authenticated");
+        String emailRaw = auth.getName();
+        if (emailRaw == null || emailRaw.isBlank() || "anonymousUser".equalsIgnoreCase(emailRaw.trim())) {
+            throw new AccessDeniedException("User is not authenticated");
         }
 
-        String username;
+        final String email = emailRaw.trim().toLowerCase();
 
-        if (principal instanceof User) {
-            return (User) principal;
-        } else if (principal instanceof org.springframework.security.core.userdetails.UserDetails userDetails) {
-            username = userDetails.getUsername();
-        } else if (principal instanceof String str) {
-            username = str;
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new AccessDeniedException("User not found: " + email));
+
+        // 2) normalize optional params
+        Instant now = Instant.now();
+
+        String systemPrompt = (req.getSystemPrompt() == null || req.getSystemPrompt().isBlank())
+                ? null
+                : req.getSystemPrompt().trim();
+
+        String model = (req.getModel() == null || req.getModel().isBlank())
+                ? DEFAULT_MODEL
+                : req.getModel().trim();
+
+        Long requestedSessionId = req.getChatSessionId();
+
+        // 3) load/create session (must belong to this user)
+        ChatSession session;
+        if (requestedSessionId == null) {
+            session = new ChatSession();
+            session.setUser(user);
+            session.setTitle(buildDefaultTitle(message));
+            session.setCreatedAt(now);
+            session.setUpdatedAt(now);
+            session = sessionRepo.save(session);
         } else {
-            throw new RuntimeException("Unsupported principal type: " + principal.getClass());
+            session = sessionRepo.findByIdAndUser_Id(requestedSessionId, user.getId())
+                    .orElseThrow(() -> new AccessDeniedException(
+                            "Session not found or access denied: " + requestedSessionId));
+            session.setUpdatedAt(now);
+            // можно не делать save тут, потому что в конце всё равно обновим и сохраним
         }
 
-        return userRepository.findByUsername(username)
-                .orElseThrow(() -> new RuntimeException("User not found: " + username));
+        // 4) save USER message
+        ChatMessage userMsg = new ChatMessage();
+        userMsg.setSession(session);
+        userMsg.setRole(MessageRole.USER);
+        userMsg.setContent(message);
+        userMsg.setCreatedAt(now);
+        messageRepo.save(userMsg);
+
+        // 5) call AI
+        String answer = aiClient.generate(message, systemPrompt, model);
+        if (answer == null || answer.isBlank()) {
+            answer = "(Empty response)";
+        }
+
+        // 6) save AI message
+        ChatMessage aiMsg = new ChatMessage();
+        aiMsg.setSession(session);
+        aiMsg.setRole(MessageRole.AI);
+        aiMsg.setContent(answer);
+        aiMsg.setCreatedAt(Instant.now());
+        messageRepo.save(aiMsg);
+
+        // 7) update session updatedAt
+        session.setUpdatedAt(Instant.now());
+        sessionRepo.save(session);
+
+        // 8) response
+        ChatResponse resp = new ChatResponse(answer);
+        resp.setChatSessionId(session.getId());
+        resp.setModel(model);
+        return resp;
     }
-
-
     private String buildDefaultTitle(String userMessage) {
-        if (userMessage == null || userMessage.isBlank()) {
-            return "New chat";
-        }
-        String trimmed = userMessage.trim();
-        return trimmed.length() > 30 ? trimmed.substring(0, 30) + "…" : trimmed;
+        if (userMessage == null || userMessage.isBlank()) return "New chat";
+        String t = userMessage.trim();
+        return t.length() > 30 ? t.substring(0, 30) + "…" : t;
     }
+
+
+
     @Override
-    public List<ChatSessionDto> getUserSessions(){
-        User user = getCurrentUser();
-        List<ChatSession> sessions = sessionRepo.findAllByUser_IdOrderByUpdatedAtDesc( user.getId());
+    @Transactional(readOnly = true)
+    public List<ChatSessionDto> getUserSessions(String userEmail) {
 
-        List<ChatSessionDto> result = new ArrayList<>();
-        for (ChatSession session : sessions){
-            ChatSessionDto chatDto = new ChatSessionDto();
-            chatDto.setId(session.getId());
-            chatDto.setTitle(session.getTitle());
-            chatDto.setUpdatedAt(session.getUpdatedAt());
-            result.add(chatDto);
+        if (userEmail == null || userEmail.isBlank()) {
+            throw new AccessDeniedException("User email is required");
         }
-        return result;
 
+        String email = userEmail.trim().toLowerCase();
 
-    }
-    public List<ChatMessageDto> getSessionMessages(Long sessionId){
-        User user = getCurrentUser();
-        ChatSession session = sessionRepo.findByIdAndUser_Id(sessionId, user.getId())
-                .orElseThrow(() ->
-                new RuntimeException("Session not found or access denied: " + sessionId));
-        List<ChatMessage> messages = messageRepo.findBySessionIdOrderByCreatedAtAsc(session.getId());
-        List<ChatMessageDto> result = new ArrayList<>();
-        for(ChatMessage msg: messages){
-            ChatMessageDto dto = new ChatMessageDto();
-            dto.setId(msg.getId());
-            dto.setRole(msg.getRole().name());
-            dto.setContent(msg.getContent());
-            dto.setCreatedAt(msg.getCreatedAt());
+        // 1) ищем пользователя
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new AccessDeniedException("User not found: " + email));
+
+        // 2) берём все его сессии, сортированные по updatedAt DESC
+        List<ChatSession> sessions =
+                sessionRepo.findAllByUser_IdOrderByUpdatedAtDesc(user.getId());
+
+        // 3) маппим Entity → DTO
+        List<ChatSessionDto> result = new ArrayList<>();
+        for (ChatSession s : sessions) {
+            ChatSessionDto dto = new ChatSessionDto();
+            dto.setId(s.getId());
+            dto.setTitle(s.getTitle());
+            dto.setUpdatedAt(s.getUpdatedAt());
             result.add(dto);
         }
-        return result;
 
+        return result;
+    }
+
+    @Override
+    public List<ChatMessageDto> getSessionMessages(Long sessionId, String userEmail) {
+        return List.of();
     }
 }
