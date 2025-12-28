@@ -1,8 +1,6 @@
 package com.example.growth_hungry.security;
 
-import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.SignatureAlgorithm;
+import io.jsonwebtoken.*;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import lombok.extern.slf4j.Slf4j;
@@ -16,16 +14,15 @@ import java.time.Instant;
 import java.util.Date;
 
 @Component
-@Slf4j
 public class JwtUtil {
 
-    private final Key key;                 // секретный ключ для подписи JWT
-    private final long ttlMinutes;         // срок жизни токена
-    private final String issuer;           // кто выдал токен
-    private final String audience;         // для кого токен
-
+    private static final Logger log = LoggerFactory.getLogger(JwtUtil.class);
     private static final long CLOCK_SKEW_SECONDS = 60;
-    private static final Logger log = LoggerFactory.getLogger(JwtUtil.class);// допуск по времени
+
+    private final Key key;
+    private final long ttlMinutes;
+    private final String issuer;
+    private final String audience;
 
     public JwtUtil(
             @Value("${jwt.secret}") String base64Secret,
@@ -39,10 +36,10 @@ public class JwtUtil {
         this.audience = audience;
     }
 
-    /** Создаём access-token */
     public String generateToken(String subject) {
         Instant now = Instant.now();
-        String token = Jwts.builder()
+
+        return Jwts.builder()
                 .setSubject(subject)
                 .setIssuer(issuer)
                 .setAudience(audience)
@@ -50,39 +47,29 @@ public class JwtUtil {
                 .setExpiration(Date.from(now.plusSeconds(ttlMinutes * 60)))
                 .signWith(key, SignatureAlgorithm.HS256)
                 .compact();
-
-        log.debug("JWT generated for subject={}", subject);
-        return token;
     }
 
-    /** Достаём пользователя из sub */
     public String getSubject(String token) {
         return parseClaims(token).getSubject();
     }
 
-    /** True, если подпись, время и issuer/audience корректны */
     public boolean isValid(String token) {
         try {
-            Claims c = parseClaims(token);
-            log.info("✅ JWT OK: sub={}, iss={}, aud={}, exp={}",
-                    c.getSubject(),
-                    c.getIssuer(),
-                    c.getAudience(),
-                    c.getExpiration());
+            Claims claims = parseClaims(token);
+
+            if (!issuer.equals(claims.getIssuer())) return false;
+            if (!audience.equals(claims.getAudience())) return false;
+
             return true;
-        } catch (io.jsonwebtoken.ExpiredJwtException ex) {
-            log.warn("⏰ JWT expired: {}", ex.getMessage());
+        } catch (ExpiredJwtException ex) {
+            log.warn("JWT expired: {}", ex.getMessage());
             return false;
-        } catch (io.jsonwebtoken.SignatureException ex) {
-            log.warn("🔐 JWT signature invalid: {}", ex.getMessage());
-            return false;
-        } catch (Exception ex) {
-            log.warn("⚠️ JWT invalid: {} ({})", ex.getMessage(), ex.getClass().getSimpleName());
+        } catch (JwtException ex) {
+            log.warn("JWT invalid: {}", ex.getMessage());
             return false;
         }
     }
 
-    /** Парсим токен и одновременно валидируем его */
     private Claims parseClaims(String token) {
         return Jwts.parserBuilder()
                 .setSigningKey(key)

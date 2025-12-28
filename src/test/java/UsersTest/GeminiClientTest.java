@@ -1,20 +1,15 @@
 package UsersTest;
 
-
-
 import com.example.growth_hungry.config.AiProps;
 import com.example.growth_hungry.service.GeminiClient;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
-import org.mockito.Mock;
+import org.mockito.*;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.mockito.quality.Strictness;
 import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -28,12 +23,8 @@ import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
-/**
- * Unit tests for GeminiClient with no real HTTP calls.
- * Mocks: AiProps, HttpClient, ObjectMapper, HttpResponse.
- */
 @ExtendWith(MockitoExtension.class)
-@MockitoSettings(strictness = Strictness.LENIENT) // keep tests quiet even if a stub is shared
+@MockitoSettings(strictness = Strictness.LENIENT)
 class GeminiClientTest {
 
     @Mock
@@ -50,6 +41,7 @@ class GeminiClientTest {
         when(props.getApiKey()).thenReturn("API_KEY");
         when(props.getDefaultModel()).thenReturn("gemini-2.5-flash");
         when(props.getTimeoutMs()).thenReturn(5_000);
+
         client = new GeminiClient(props, http, om);
     }
 
@@ -61,34 +53,39 @@ class GeminiClientTest {
             {"candidates":[{"content":{"parts":[{"text":"Hello, Aidar!"}]}}]}
         """);
 
+        // Захватываем body, который GeminiClient сериализует через om.writeValueAsString(...)
         @SuppressWarnings("unchecked")
-        ArgumentCaptor<Map<String,Object>> bodyCap = ArgumentCaptor.forClass(Map.class);
+        ArgumentCaptor<Map<String, Object>> bodyCap = ArgumentCaptor.forClass(Map.class);
         when(om.writeValueAsString(bodyCap.capture())).thenReturn("{\"dummy\":\"json\"}");
 
+        // Захватываем HTTP request
         ArgumentCaptor<HttpRequest> reqCap = ArgumentCaptor.forClass(HttpRequest.class);
         when(http.send(reqCap.capture(), any(HttpResponse.BodyHandler.class))).thenReturn(httpResponse);
+
         when(httpResponse.statusCode()).thenReturn(200);
         when(httpResponse.body()).thenReturn("{}");
+
+        // Парсинг ответа
         when(om.readTree(anyString())).thenReturn(okNode);
 
         String out = client.generate("Hi", "You are helpful.", "gemini-2.5-flash");
-
         assertThat(out).isEqualTo("Hello, Aidar!");
 
         HttpRequest sent = reqCap.getValue();
         assertThat(sent.method()).isEqualTo("POST");
         assertThat(sent.headers().firstValue("Content-Type")).contains("application/json");
         assertThat(sent.timeout()).contains(Duration.ofMillis(5_000));
+
         URI uri = sent.uri();
         assertThat(uri.toString())
                 .isEqualTo("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=API_KEY");
 
-        Map<String,Object> root = bodyCap.getValue();
+        Map<String, Object> root = bodyCap.getValue();
         assertThat(root).containsKeys("contents");
         assertThat(root).containsKey("systemInstruction");
 
         @SuppressWarnings("unchecked")
-        List<Map<String,Object>> contents = (List<Map<String,Object>>) root.get("contents");
+        List<Map<String, Object>> contents = (List<Map<String, Object>>) root.get("contents");
         assertThat(contents).hasSize(1);
         assertThat(contents.get(0).get("role")).isEqualTo("user");
     }
@@ -102,15 +99,16 @@ class GeminiClientTest {
         """);
 
         when(om.writeValueAsString(any())).thenReturn("{}");
-        when(http.send(any(), any(HttpResponse.BodyHandler.class))).thenReturn(httpResponse);
-        when(httpResponse.statusCode()).thenReturn(200);
-        when(httpResponse.body()).thenReturn("{}");
-        when(om.readTree(anyString())).thenReturn(okNode);
 
         ArgumentCaptor<HttpRequest> reqCap = ArgumentCaptor.forClass(HttpRequest.class);
         when(http.send(reqCap.capture(), any(HttpResponse.BodyHandler.class))).thenReturn(httpResponse);
 
+        when(httpResponse.statusCode()).thenReturn(200);
+        when(httpResponse.body()).thenReturn("{}");
+        when(om.readTree(anyString())).thenReturn(okNode);
+
         String out = client.generate("Hi", null, null);
+
         assertThat(out).isEqualTo("OK");
         assertThat(reqCap.getValue().uri().toString())
                 .contains("/models/gemini-2.5-flash:generateContent");
@@ -127,15 +125,16 @@ class GeminiClientTest {
         """);
 
         when(om.writeValueAsString(any())).thenReturn("{}");
-        when(http.send(any(), any(HttpResponse.BodyHandler.class))).thenReturn(httpResponse);
-        when(httpResponse.statusCode()).thenReturn(200);
-        when(httpResponse.body()).thenReturn("{}");
-        when(om.readTree(anyString())).thenReturn(okNode);
 
         ArgumentCaptor<HttpRequest> reqCap = ArgumentCaptor.forClass(HttpRequest.class);
         when(http.send(reqCap.capture(), any(HttpResponse.BodyHandler.class))).thenReturn(httpResponse);
 
+        when(httpResponse.statusCode()).thenReturn(200);
+        when(httpResponse.body()).thenReturn("{}");
+        when(om.readTree(anyString())).thenReturn(okNode);
+
         String out = client.generate("Hi", null, null);
+
         assertThat(out).isEqualTo("OK");
         assertThat(reqCap.getValue().uri().toString())
                 .isEqualTo("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=API_KEY");
@@ -146,6 +145,7 @@ class GeminiClientTest {
     void generate_non2xx_throws() throws Exception {
         when(om.writeValueAsString(any())).thenReturn("{}");
         when(http.send(any(), any(HttpResponse.BodyHandler.class))).thenReturn(httpResponse);
+
         when(httpResponse.statusCode()).thenReturn(503);
         when(httpResponse.body()).thenReturn("{\"error\":\"unavailable\"}");
 
@@ -161,6 +161,7 @@ class GeminiClientTest {
         assertThatThrownBy(() -> client.generate("   ", null, "m"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("message must not be blank");
+
         verifyNoInteractions(http, om);
     }
 
@@ -174,6 +175,7 @@ class GeminiClientTest {
 
         when(om.writeValueAsString(any())).thenReturn("{}");
         when(http.send(any(), any(HttpResponse.BodyHandler.class))).thenReturn(httpResponse);
+
         when(httpResponse.statusCode()).thenReturn(200);
         when(httpResponse.body()).thenReturn("{}");
         when(om.readTree(anyString())).thenReturn(okNode);

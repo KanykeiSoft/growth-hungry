@@ -18,27 +18,41 @@ public class ChatSession {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(nullable = false)
     private String title;
 
-    @ManyToOne(optional = false)
+    @ManyToOne(optional = false, fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
+    @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
+
+    @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
     @OneToMany(mappedBy = "session", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<ChatMessage> messages = new ArrayList<>();
 
-    // --- Конструкторы ---
     public ChatSession() {}
 
     public ChatSession(String title, User user) {
         this.title = title;
         this.user = user;
-        this.createdAt = Instant.now();
+    }
+
+    @PrePersist
+    public void prePersist() {
+        Instant now = Instant.now();
+        this.createdAt = now;
+        this.updatedAt = now;
+    }
+
+    @PreUpdate
+    public void preUpdate() {
         this.updatedAt = Instant.now();
     }
+
 
     // --- Геттеры и сеттеры ---
     public Long getId() { return id; }

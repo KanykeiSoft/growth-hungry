@@ -21,36 +21,30 @@ public class ChatMessage {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, columnDefinition = "TEXT")
+    @Column(name = "content", nullable = false, columnDefinition = "text")
     private String content;
 
-    @Column(nullable = false, updatable = false)
-    private Instant createdAt;
-
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 10)
-    private MessageRole role;
+    @Column(name = "role", nullable = false, length = 10)
+    private MessageRole role; // USER / ASSISTANT
+
+    @Column(name = "created_at", nullable = false)
+    private Instant createdAt;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "session_id", nullable = false)
     private ChatSession session;
 
+    // так как в таблице есть user_id — лучше тоже замаппить
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id")
+    private User user;
 
-
-    public ChatMessage() {
-    }
-
-    public ChatMessage(String content, MessageRole role) {
-        this.content = content;
-        this.role = role;
-    }
+    public ChatMessage() {}
 
     @PrePersist
-    protected void onCreate() {
-        // если вручную не задали createdAt, установим сейчас
-        if (this.createdAt == null) {
-            this.createdAt = Instant.now();
-        }
+    public void prePersist() {
+        if (createdAt == null) createdAt = Instant.now();
     }
 
     // ======= GETTERS =======

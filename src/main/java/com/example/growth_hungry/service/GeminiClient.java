@@ -25,12 +25,15 @@ import org.springframework.stereotype.Service;
  * Вся бизнес-логика и обработка ошибок — выше, в ChatServiceImpl.
  */
 
-
 @Service
 public class GeminiClient implements AiClient {
+
     private static final Logger log = LoggerFactory.getLogger(GeminiClient.class);
 
-    private final AiProps props;          // baseUrl, apiKey, defaultModel, timeout
+    // Версию API держим В ОДНОМ МЕСТЕ (в коде), а base-url в пропертис без /v1...
+    private static final String API_VERSION_PATH = "/v1beta";
+
+    private final AiProps props;
     private final HttpClient http;
     private final ObjectMapper om;
 
@@ -42,41 +45,15 @@ public class GeminiClient implements AiClient {
 
     @Override
     public String generate(String message, String systemPrompt, String model) {
-        // 1) Валидация
-        if (message == null || message.isBlank()) {
-            throw new IllegalArgumentException("message must not be blank");
-        }
+        String msg = normalizeRequired(message, "message must not be blank");
 
-        // 2) Модель
-        final String effectiveModel = (model == null || model.isBlank())
-                ? props.getDefaultModel()
-                : model.trim();
+        String effectiveModel = normalize(model);
+        if (effectiveModel == null) effectiveModel = normalizeRequired(props.getDefaultModel(), "Missing ai.default-model");
 
-        // 3) URL (с ?key=...)
-        final String url = buildUrl(effectiveModel);
+        String url = buildUrl(effectiveModel);
 
-        // 4) Тело запроса
-        Map<String, Object> user = Map.of(
-                "role", "user",
-                "parts", List.of(Map.of("text", message))
-        );
+        String json = buildRequestJson(msg, systemPrompt);
 
-        Map<String, Object> root = new LinkedHashMap<>();
-        root.put("contents", List.of(user));
-
-        if (systemPrompt != null && !systemPrompt.isBlank()) {
-            root.put("systemInstruction",
-                    Map.of("parts", List.of(Map.of("text", systemPrompt.trim()))));
-        }
-
-        final String json;
-        try {
-            json = om.writeValueAsString(root);
-        } catch (Exception e) { // JsonProcessingException
-            throw new RuntimeException("Failed to serialize Gemini request", e);
-        }
-
-        // 5) HTTP-запрос
         HttpRequest req = HttpRequest.newBuilder(URI.create(url))
                 .timeout(Duration.ofMillis(props.getTimeoutMs()))
                 .header("Content-Type", "application/json")
@@ -85,95 +62,113 @@ public class GeminiClient implements AiClient {
 
         log.info("Gemini URL: {}", url);
 
-        // 6) Отправка
-        final HttpResponse<String> res;
+        HttpResponse<String> res;
         try {
             res = http.send(req, HttpResponse.BodyHandlers.ofString());
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new RuntimeException("Gemini call interrupted", e);
-        } catch (Exception e) { // IOException
+        } catch (Exception e) {
             throw new RuntimeException("Gemini call failed", e);
         }
 
-        // 7) Статус
         if (res.statusCode() < 200 || res.statusCode() >= 300) {
-            throw new RuntimeException("Gemini HTTP " + res.statusCode() + ": " + res.body());
+            // Сюда попадают 400/401/403/404 и т.д.
+            throw new RuntimeException("Gemini HTTP " + res.statusCode() + ": " + safeBody(res.body()));
         }
 
-        // 8) Парсинг
-        final JsonNode node;
+        JsonNode root;
         try {
-            node = om.readTree(res.body());
-        } catch (Exception e) { // JsonProcessingException
+            root = om.readTree(res.body());
+        } catch (Exception e) {
             throw new RuntimeException("Failed to parse Gemini response JSON", e);
         }
 
-        String text = extractText(node);
-
-        // 9) Результат
-        return (text == null || text.isBlank()) ? "" : text.trim();
+        String text = extractText(root);
+        return text == null ? "" : text.trim();
     }
 
-    /** Строит URL и гарантирует /v1beta и ?key=... */
     private String buildUrl(String model) {
-        String base = stripTrailingSlash(requireNonEmpty(props.getBaseUrl(), "Missing ai.base-url"));
-
-        // если /v1beta ещё не добавлен — добавляем
-        if (!base.endsWith("/v1beta")) {
-            base = base + "/v1beta";
-        }
+        String base = normalizeBaseUrl(normalizeRequired(props.getBaseUrl(), "Missing ai.base-url"));
 
         String encodedKey = URLEncoder.encode(
-                requireNonEmpty(props.getApiKey(), "Missing ai.api-key").trim(),
+                normalizeRequired(props.getApiKey(), "Missing ai.api-key"),
                 StandardCharsets.UTF_8
         );
 
-        // 💡 удаляем возможный префикс "models/" у модели
-        String cleanModel = (model != null && model.startsWith("models/"))
-                ? model.substring("models/".length())
-                : model;
+        String cleanModel = model.startsWith("models/") ? model.substring("models/".length()) : model;
 
-        return base + "/models/" + cleanModel + ":generateContent?key=" + encodedKey;
+        return base
+                + "/models/" + cleanModel
+                + ":generateContent?key=" + encodedKey;
     }
 
-    // ---------- helpers ----------
+    private static String normalizeBaseUrl(String baseUrl) {
+        String b = baseUrl.trim();
 
-    private static String stripTrailingSlash(String s) {
-        if (s == null) return null;
-        return s.endsWith("/") ? s.substring(0, s.length() - 1) : s;
-    }
-
-    private static String requireNonEmpty(String s, String msg) {
-        if (s == null || s.isBlank()) throw new IllegalStateException(msg);
-        return s;
-    }
-
-    /** Склеивает ВСЕ parts[].text без лишних разделителей. */
-    private String extractText(JsonNode root) {
-        // Частый случай: один текст
-        JsonNode single = root.at("/candidates/0/content/parts/0/text");
-        if (single.isTextual()) {
-            // но это покроется и общим случаем; оставим для быстрого пути
+        while (b.endsWith("/")) {
+            b = b.substring(0, b.length() - 1);
         }
 
-        // Общий случай: parts[] с несколькими кусками
+        if (b.endsWith("/v1beta")) return b;
+
+        return b + API_VERSION_PATH;
+    }
+
+    private String buildRequestJson(String message, String systemPrompt) {
+        Map<String, Object> user = Map.of(
+                "role", "user",
+                "parts", List.of(Map.of("text", message))
+        );
+
+        Map<String, Object> root = new LinkedHashMap<>();
+        root.put("contents", List.of(user));
+
+        String sp = normalize(systemPrompt);
+        if (sp != null) {
+            root.put("systemInstruction",
+                    Map.of("parts", List.of(Map.of("text", sp))));
+        }
+
+        try {
+            return om.writeValueAsString(root);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to serialize Gemini request", e);
+        }
+    }
+
+    private String extractText(JsonNode root) {
         JsonNode parts = root.at("/candidates/0/content/parts");
-        if (parts.isArray() && parts.size() > 0) {
+        if (parts.isArray()) {
             StringBuilder sb = new StringBuilder();
             for (JsonNode p : parts) {
                 JsonNode t = p.get("text");
-                if (t != null && t.isTextual()) {
-                    sb.append(t.asText()); // без \n, чтобы совпасть с "Hello, world!"
-                }
+                if (t != null && t.isTextual()) sb.append(t.asText());
             }
             if (sb.length() > 0) return sb.toString();
         }
 
-        // Фоллбек
         JsonNode direct = root.at("/candidates/0/content/text");
-        if (direct.isTextual()) return direct.asText();
+        return direct.isTextual() ? direct.asText() : null;
+    }
 
-        return null;
+    private static String normalize(String s) {
+        if (s == null) return null;
+        String t = s.trim();
+        return t.isBlank() ? null : t;
+    }
+
+    private static String normalizeRequired(String s, String error) {
+        String t = normalize(s);
+        if (t == null) throw new IllegalArgumentException(error);
+        return t;
+    }
+
+
+
+    private static String safeBody(String body) {
+        if (body == null) return "";
+        // чтобы не засорять логи огромными JSON-ами
+        return body.length() > 3000 ? body.substring(0, 3000) + "…" : body;
     }
 }

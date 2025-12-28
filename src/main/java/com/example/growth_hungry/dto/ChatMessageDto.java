@@ -1,10 +1,11 @@
 package com.example.growth_hungry.dto;
 
+import com.example.growth_hungry.model.chat.MessageRole;
 import java.time.Instant;
 
 public class ChatMessageDto {
     private Long id;
-    private String role;
+    private MessageRole role;
     private String content;
     private Instant createdAt;
 
@@ -17,11 +18,11 @@ public class ChatMessageDto {
         this.id = id;
     }
 
-    public String getRole() {
+    public MessageRole getRole() {
         return role;
     }
 
-    public void setRole(String role) {
+    public void setRole(MessageRole role) {
         this.role = role;
     }
 

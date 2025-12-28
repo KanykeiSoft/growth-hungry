@@ -17,12 +17,14 @@ import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.web.server.ResponseStatusException;
 
 
 import javax.swing.*;
@@ -50,7 +52,7 @@ public class ChatServiceImpl implements ChatService {
 
     @Override
     @Transactional
-    public ChatResponse chat(ChatRequest req) {
+    public ChatResponse chat(ChatRequest req, String userEmail) {
         // 0) validate request
         if (req == null) throw new IllegalArgumentException("Request must not be null");
 
@@ -122,7 +124,7 @@ public class ChatServiceImpl implements ChatService {
         // 6) save AI message
         ChatMessage aiMsg = new ChatMessage();
         aiMsg.setSession(session);
-        aiMsg.setRole(MessageRole.AI);
+        aiMsg.setRole(MessageRole.ASSISTANT);
         aiMsg.setContent(answer);
         aiMsg.setCreatedAt(Instant.now());
         messageRepo.save(aiMsg);
@@ -144,40 +146,75 @@ public class ChatServiceImpl implements ChatService {
     }
 
 
-
     @Override
     @Transactional(readOnly = true)
     public List<ChatSessionDto> getUserSessions(String userEmail) {
 
         if (userEmail == null || userEmail.isBlank()) {
-            throw new AccessDeniedException("User email is required");
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User email is required");
         }
 
         String email = userEmail.trim().toLowerCase();
 
-        // 1) ищем пользователя
+        // 1) user must exist
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new AccessDeniedException("User not found: " + email));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not found"));
 
-        // 2) берём все его сессии, сортированные по updatedAt DESC
-        List<ChatSession> sessions =
-                sessionRepo.findAllByUser_IdOrderByUpdatedAtDesc(user.getId());
+        // 2) load sessions
+        List<ChatSession> sessions = sessionRepo.findAllByUser_IdOrderByUpdatedAtDesc(user.getId());
 
-        // 3) маппим Entity → DTO
-        List<ChatSessionDto> result = new ArrayList<>();
+        // 3) map Entity -> DTO
+        List<ChatSessionDto> result = new ArrayList<>(sessions.size());
         for (ChatSession s : sessions) {
             ChatSessionDto dto = new ChatSessionDto();
             dto.setId(s.getId());
             dto.setTitle(s.getTitle());
-            dto.setUpdatedAt(s.getUpdatedAt());
+
+            // 💡 на случай если updatedAt вдруг null (чтобы фронт не падал/не сортировал криво)
+            dto.setUpdatedAt(s.getUpdatedAt() != null ? s.getUpdatedAt() : s.getCreatedAt());
+
             result.add(dto);
         }
 
         return result;
     }
 
+
     @Override
+    @Transactional(readOnly = true)
     public List<ChatMessageDto> getSessionMessages(Long sessionId, String userEmail) {
-        return List.of();
+
+        if (userEmail == null || userEmail.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User email is required");
+        }
+        if (sessionId == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Session id is required");
+        }
+
+        String email = userEmail.trim().toLowerCase();
+
+        // 1) user must exist
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not found"));
+
+        // 2) session must belong to this user
+        ChatSession session = sessionRepo.findByIdAndUser_Id(sessionId, user.getId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Session not found"));
+
+        // 3) load messages
+        List<ChatMessage> messages = messageRepo.findBySession_IdOrderByCreatedAtAsc(session.getId());
+
+        // 4) map to DTO
+        List<ChatMessageDto> result = new ArrayList<>(messages.size());
+        for (ChatMessage m : messages) {
+            ChatMessageDto dto = new ChatMessageDto();
+            dto.setId(m.getId());
+            dto.setRole(m.getRole());
+            dto.setContent(m.getContent());
+            dto.setCreatedAt(m.getCreatedAt());
+            result.add(dto);
+        }
+
+        return result;
     }
 }
