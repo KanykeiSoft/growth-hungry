@@ -89,10 +89,8 @@ public class GeminiClient implements AiClient {
     }
 
     private String buildUrl(String model) {
-        String base = stripTrailingSlash(normalizeRequired(props.getBaseUrl(), "Missing ai.base-url"));
+        String base = normalizeBaseUrl(normalizeRequired(props.getBaseUrl(), "Missing ai.base-url"));
 
-        // Важно: base-url должен быть БЕЗ /v1beta в properties.
-        // Мы всегда добавляем версию тут: ... + /v1beta
         String encodedKey = URLEncoder.encode(
                 normalizeRequired(props.getApiKey(), "Missing ai.api-key"),
                 StandardCharsets.UTF_8
@@ -100,9 +98,21 @@ public class GeminiClient implements AiClient {
 
         String cleanModel = model.startsWith("models/") ? model.substring("models/".length()) : model;
 
-        return base + API_VERSION_PATH
+        return base
                 + "/models/" + cleanModel
                 + ":generateContent?key=" + encodedKey;
+    }
+
+    private static String normalizeBaseUrl(String baseUrl) {
+        String b = baseUrl.trim();
+
+        while (b.endsWith("/")) {
+            b = b.substring(0, b.length() - 1);
+        }
+
+        if (b.endsWith("/v1beta")) return b;
+
+        return b + API_VERSION_PATH;
     }
 
     private String buildRequestJson(String message, String systemPrompt) {
@@ -154,9 +164,7 @@ public class GeminiClient implements AiClient {
         return t;
     }
 
-    private static String stripTrailingSlash(String s) {
-        return s.endsWith("/") ? s.substring(0, s.length() - 1) : s;
-    }
+
 
     private static String safeBody(String body) {
         if (body == null) return "";
