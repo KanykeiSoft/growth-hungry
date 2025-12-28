@@ -29,6 +29,19 @@ public class JwtAuthFilter extends OncePerRequestFilter {
     }
 
     @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        String method = request.getMethod();
+        String path = request.getServletPath();
+
+        // public endpoints
+        if ("OPTIONS".equalsIgnoreCase(method)) return true;
+        if (path.startsWith("/api/auth/")) return true;
+        if ("/actuator/health".equals(path)) return true;
+        if ("/error".equals(path)) return true; // важно!
+        return false;
+    }
+
+    @Override
     protected void doFilterInternal(HttpServletRequest request,
                                     HttpServletResponse response,
                                     FilterChain filterChain)
@@ -40,46 +53,47 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
         log.info("{} {} | Authorization={}", method, path, header);
 
-        // Skip open endpoints (auth, health, preflight)
-        if ("OPTIONS".equalsIgnoreCase(method)
-                || path.startsWith("/api/auth/")
-                || "/actuator/health".equals(path)) {
+        // если аутентификация уже есть — не трогаем
+        if (SecurityContextHolder.getContext().getAuthentication() != null) {
             filterChain.doFilter(request, response);
             return;
         }
 
-        // Reject if Authorization header is missing or invalid
+        // если нет Bearer токена — просто пропускаем дальше
         if (header == null || !header.startsWith("Bearer ")) {
-            log.warn("No Bearer token for protected path {}", path);
+            log.debug("No Bearer token for {}", path);
             filterChain.doFilter(request, response);
             return;
         }
 
         String token = header.substring(7).trim();
 
-        // Do not override existing authentication
-        if (SecurityContextHolder.getContext().getAuthentication() != null) {
-            filterChain.doFilter(request, response);
-            return;
-        }
-
         try {
-            // Validate token and extract subject (email)
-            if (jwtUtil.isValid(token)) {
-                String email = jwtUtil.getSubject(token);
-
-                UsernamePasswordAuthenticationToken auth =
-                        new UsernamePasswordAuthenticationToken(
-                                email,
-                                null,
-                                AuthorityUtils.NO_AUTHORITIES
-                        );
-
-                auth.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                SecurityContextHolder.getContext().setAuthentication(auth);
+            if (!jwtUtil.isValid(token)) {
+                log.warn("Invalid JWT for {}", path);
+                filterChain.doFilter(request, response);
+                return;
             }
+
+            String email = jwtUtil.getSubject(token);
+            if (email == null || email.isBlank()) {
+                log.warn("JWT subject is blank for {}", path);
+                filterChain.doFilter(request, response);
+                return;
+            }
+
+            UsernamePasswordAuthenticationToken auth =
+                    new UsernamePasswordAuthenticationToken(
+                            email,
+                            null,
+                            AuthorityUtils.createAuthorityList("ROLE_USER")
+                    );
+
+            auth.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+            SecurityContextHolder.getContext().setAuthentication(auth);
+
         } catch (Exception e) {
-            log.error("Error while processing JWT: {}", e.getMessage(), e);
+            log.error("JWT processing error: {}", e.getMessage(), e);
         }
 
         filterChain.doFilter(request, response);

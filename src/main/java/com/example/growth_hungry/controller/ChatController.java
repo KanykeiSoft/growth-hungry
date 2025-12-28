@@ -13,7 +13,6 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
-
 @RestController
 @RequestMapping("/api/chat")
 @Slf4j
@@ -25,31 +24,27 @@ public class ChatController {
         this.chatService = chatService;
     }
 
-
     @PostMapping
-    public ResponseEntity<ChatResponse> chat(@Valid @RequestBody ChatRequest req) {
+    public ResponseEntity<ChatResponse> chat(@Valid @RequestBody ChatRequest req,
+                                             Authentication auth) {
 
-        // Validate that the message is not empty
         if (req == null || req.getMessage() == null || req.getMessage().isBlank()) {
             return ResponseEntity.badRequest()
                     .body(new ChatResponse("Error: message must not be blank"));
         }
 
-        // Delegate processing to the service layer
-        return ResponseEntity.ok(chatService.chat(req));
+        // auth гарантирован SecurityConfig'ом (иначе до контроллера не дойдёт)
+        return ResponseEntity.ok(chatService.chat(req, auth.getName()));
     }
 
     @GetMapping("/sessions")
     public ResponseEntity<List<ChatSessionDto>> getUserSessions(Authentication auth) {
-        String email = auth.getName();
-        return ResponseEntity.ok(chatService.getUserSessions(email));
+        return ResponseEntity.ok(chatService.getUserSessions(auth.getName()));
     }
 
-    @GetMapping("/sessions/{sessionId}")
+    @GetMapping("/sessions/{sessionId}/messages")
     public ResponseEntity<List<ChatMessageDto>> getSessionMessages(@PathVariable Long sessionId,
                                                                    Authentication auth) {
-        String email = auth.getName();
-        return ResponseEntity.ok(chatService.getSessionMessages(sessionId, email));
+        return ResponseEntity.ok(chatService.getSessionMessages(sessionId, auth.getName()));
     }
-
 }

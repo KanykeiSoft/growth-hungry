@@ -50,7 +50,7 @@ public class ChatServiceImpl implements ChatService {
 
     @Override
     @Transactional
-    public ChatResponse chat(ChatRequest req) {
+    public ChatResponse chat(ChatRequest req, String userEmail) {
         // 0) validate request
         if (req == null) throw new IllegalArgumentException("Request must not be null");
 
@@ -122,7 +122,7 @@ public class ChatServiceImpl implements ChatService {
         // 6) save AI message
         ChatMessage aiMsg = new ChatMessage();
         aiMsg.setSession(session);
-        aiMsg.setRole(MessageRole.AI);
+        aiMsg.setRole(MessageRole.ASSISTANT);
         aiMsg.setContent(answer);
         aiMsg.setCreatedAt(Instant.now());
         messageRepo.save(aiMsg);
@@ -142,6 +142,7 @@ public class ChatServiceImpl implements ChatService {
         String t = userMessage.trim();
         return t.length() > 30 ? t.substring(0, 30) + "…" : t;
     }
+
 
 
 
@@ -178,6 +179,29 @@ public class ChatServiceImpl implements ChatService {
 
     @Override
     public List<ChatMessageDto> getSessionMessages(Long sessionId, String userEmail) {
-        return List.of();
+        if (userEmail == null || userEmail.isBlank()) {
+            throw new AccessDeniedException("User email is required");
+        }
+        if (sessionId == null) {
+            throw new IllegalArgumentException("Session id is required");
+        }
+        String email = userEmail.trim().toLowerCase();
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new AccessDeniedException("User not found: " + email));
+        ChatSession session = sessionRepo.findByIdAndUser_Id(sessionId, user.getId())
+                .orElseThrow(() -> new AccessDeniedException("Session not found or access denied: " + sessionId));
+
+        List<ChatMessage> messages = messageRepo.findBySessionIdOrderByCreatedAtAsc(session.getId());
+        List<ChatMessageDto> result = new ArrayList<>();
+        for (ChatMessage m : messages) {
+            ChatMessageDto dto = new ChatMessageDto();
+            dto.setId(m.getId());
+            dto.setRole(m.getRole());
+            dto.setContent(m.getContent());
+            dto.setCreatedAt(m.getCreatedAt());
+            result.add(dto);
+        }
+
+        return result;
     }
 }
