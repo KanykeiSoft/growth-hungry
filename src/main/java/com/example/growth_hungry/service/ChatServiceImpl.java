@@ -53,7 +53,6 @@ public class ChatServiceImpl implements ChatService {
     @Override
     @Transactional
     public ChatResponse chat(ChatRequest req, String userEmail) {
-        // 0) validate request
         if (req == null) throw new IllegalArgumentException("Request must not be null");
 
         String message = req.getMessage() == null ? null : req.getMessage().trim();
@@ -104,7 +103,7 @@ public class ChatServiceImpl implements ChatService {
                     .orElseThrow(() -> new AccessDeniedException(
                             "Session not found or access denied: " + requestedSessionId));
             session.setUpdatedAt(now);
-            // можно не делать save тут, потому что в конце всё равно обновим и сохраним
+
         }
 
         // 4) save USER message
