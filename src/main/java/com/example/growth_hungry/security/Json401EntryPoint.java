@@ -13,8 +13,11 @@ import java.util.Map;
 
 @Component
 public class Json401EntryPoint implements AuthenticationEntryPoint {
+    private final ObjectMapper om;
 
-    private final ObjectMapper om = new ObjectMapper();
+    public Json401EntryPoint(ObjectMapper om) {
+        this.om = om;
+    }
 
     @Override
     public void commence(HttpServletRequest request,

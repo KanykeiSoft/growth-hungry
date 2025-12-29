@@ -17,10 +17,4 @@ public class AiConfig {
                 .build();
     }
 
-
-
-    @Bean
-    public ObjectMapper objectMapper(){
-        return new ObjectMapper();
-    }
 }
