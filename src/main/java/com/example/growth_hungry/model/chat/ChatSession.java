@@ -54,6 +54,10 @@ public class ChatSession {
     }
 
 
+    public void setId(Long id) {
+        this.id = id;
+    }
+
     // --- Геттеры и сеттеры ---
     public Long getId() { return id; }
 
