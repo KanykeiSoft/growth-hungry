@@ -4,6 +4,8 @@ public class ChatResponse {
     private String reply;
     private Long chatSessionId;
     private String model;
+    private String title;      // NEW
+    private Boolean isNew;
 
     // Пустой конструктор (нужен для сериализации)
     public ChatResponse() {

@@ -18,6 +18,9 @@ public class ChatSession {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(name = "model", nullable = false)
+    private String model;
+
     @Column(nullable = false)
     private String title;
 
@@ -77,7 +80,13 @@ public class ChatSession {
     public void setMessages(List<ChatMessage> messages) { this.messages = messages; }
 
 
+    public String getModel() {
+        return model;
+    }
 
+    public void setModel(String model) {
+        this.model = model;
+    }
 }
 
 

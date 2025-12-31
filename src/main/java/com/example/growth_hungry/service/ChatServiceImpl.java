@@ -168,6 +168,8 @@ public class ChatServiceImpl implements ChatService {
             ChatSessionDto dto = new ChatSessionDto();
             dto.setId(s.getId());
             dto.setTitle(s.getTitle());
+            dto.setModel(s.getModel());
+            dto.setCreatedAt(s.getCreatedAt());
 
             // 💡 на случай если updatedAt вдруг null (чтобы фронт не падал/не сортировал криво)
             dto.setUpdatedAt(s.getUpdatedAt() != null ? s.getUpdatedAt() : s.getCreatedAt());
