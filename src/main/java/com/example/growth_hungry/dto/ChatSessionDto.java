@@ -4,10 +4,16 @@ import java.time.Instant;
 
 public class ChatSessionDto {
     private Long id;
+    private String title;
+    private Instant updatedAt;
+    private String model;      // ✅ NEW
+    private Instant createdAt;
+
 
     public String getTitle() {
         return title;
     }
+
 
     public void setTitle(String title) {
         this.title = title;
@@ -29,6 +35,19 @@ public class ChatSessionDto {
         this.updatedAt = updatedAt;
     }
 
-    private String title;
-    private Instant updatedAt;
+    public String getModel() {
+        return model;
+    }
+
+    public void setModel(String model) {
+        this.model = model;
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(Instant createdAt) {
+        this.createdAt = createdAt;
+    }
 }
