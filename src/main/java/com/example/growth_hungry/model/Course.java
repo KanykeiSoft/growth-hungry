@@ -2,7 +2,9 @@ package com.example.growth_hungry.model;
 
 import jakarta.persistence.*;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 @Entity
@@ -20,6 +22,20 @@ public class Course {
 
     @ManyToMany(mappedBy = "enrolledCourses")
     private Set<User> users = new HashSet<>();
+
+    @OneToMany(mappedBy = "course", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<Section> sections = new ArrayList<>();
+
+    public List<Section> getSections() {
+        return sections;
+    }
+
+    public void setSections(List<Section> sections) {
+        this.sections = sections;
+    }
+
+
+
 
     public Course(Long id, String title, String description, Set<User> users, Instant createdAt, Instant updatedAt) {
         this.id = id;
