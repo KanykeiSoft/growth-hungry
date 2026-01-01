@@ -94,6 +94,8 @@ public class ChatServiceImpl implements ChatService {
         if (requestedSessionId == null) {
             session = new ChatSession();
             session.setUser(user);
+            session.setModel(model);
+
             session.setTitle(buildDefaultTitle(message));
             session.setCreatedAt(now);
             session.setUpdatedAt(now);
