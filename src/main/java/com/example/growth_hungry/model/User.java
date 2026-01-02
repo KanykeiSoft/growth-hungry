@@ -1,6 +1,8 @@
 package com.example.growth_hungry.model;
 
 import jakarta.persistence.*;
+import java.util.HashSet;
+import java.util.Set;
 
 @Entity
 @Table (name = "users")
@@ -12,6 +14,22 @@ public class User {
     @Column(nullable = false, unique = true)
     private String username;
     private String email;
+
+    public Set<Course> getEnrolledCourses() {
+        return enrolledCourses;
+    }
+
+    public void setEnrolledCourses(Set<Course> enrolledCourses) {
+        this.enrolledCourses = enrolledCourses;
+    }
+
+    @ManyToMany
+    @JoinTable(
+            name = "user_course",
+            joinColumns = @JoinColumn(name = "user_id"),
+            inverseJoinColumns = @JoinColumn(name = "course_id")
+    )
+    private Set<Course> enrolledCourses = new HashSet<>();
 
     public void setEmail(String email) {
         this.email = email;
