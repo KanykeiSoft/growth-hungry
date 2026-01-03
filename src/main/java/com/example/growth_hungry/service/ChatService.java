@@ -9,4 +9,6 @@ public interface ChatService {
     ChatResponse chat(ChatRequest req, String userEmail);
     List<ChatSessionDto> getUserSessions(String userEmail);
     List<ChatMessageDto> getSessionMessages(Long sessionId, String userEmail);
+    void deleteSession(Long sessionId, String userEmail);
+
 }

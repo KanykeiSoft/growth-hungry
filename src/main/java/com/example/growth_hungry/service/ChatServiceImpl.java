@@ -220,4 +220,18 @@ public class ChatServiceImpl implements ChatService {
 
         return result;
     }
+
+    @Override
+    @Transactional
+    public void deleteSession(Long sessionId, String userEmail){
+        ChatSession s = sessionRepo.findById(sessionId)
+                .orElseThrow(() -> new IllegalArgumentException("Session not found: " + sessionId));
+
+        if (!s.getUser().getEmail().equalsIgnoreCase(userEmail)) {
+            throw new org.springframework.security.access.AccessDeniedException("Not your session");
+        }
+        messageRepo.deleteBySession_Id(sessionId);
+        sessionRepo.delete(s);
+
+    }
 }
