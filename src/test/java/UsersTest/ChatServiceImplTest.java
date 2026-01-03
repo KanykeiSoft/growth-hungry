@@ -311,4 +311,6 @@ class ChatServiceImplTest {
                 () -> service.getSessionMessages(77L, "a@a.com"));
         assertEquals(404, ex.getStatusCode().value());
     }
+
+
 }

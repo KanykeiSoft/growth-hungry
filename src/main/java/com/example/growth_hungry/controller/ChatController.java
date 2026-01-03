@@ -47,4 +47,11 @@ public class ChatController {
                                                                    Authentication auth) {
         return ResponseEntity.ok(chatService.getSessionMessages(sessionId, auth.getName()));
     }
+    @DeleteMapping("/sessions/{sessionId}")
+    public ResponseEntity<Void> deleteSession(@PathVariable Long sessionId,
+                                              Authentication auth) {
+        chatService.deleteSession(sessionId, auth.getName());
+        return ResponseEntity.noContent().build();
+    }
+
 }
