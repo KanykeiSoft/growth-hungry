@@ -4,7 +4,9 @@ import jakarta.validation.constraints.*;
 
 public class ChatRequest {
 
+    @NotBlank
     private String message;
+
     private Long chatSessionId;
     private String systemPrompt;
     private String model;

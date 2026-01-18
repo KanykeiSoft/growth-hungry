@@ -60,23 +60,14 @@ public class ChatServiceImpl implements ChatService {
             throw new IllegalArgumentException("Message must not be blank");
         }
 
-        // 1) current user from SecurityContext
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth == null || !auth.isAuthenticated()) {
+        if (userEmail == null || userEmail.isBlank()) {
             throw new AccessDeniedException("User is not authenticated");
         }
-
-        String emailRaw = auth.getName();
-        if (emailRaw == null || emailRaw.isBlank() || "anonymousUser".equalsIgnoreCase(emailRaw.trim())) {
-            throw new AccessDeniedException("User is not authenticated");
-        }
-
-        final String email = emailRaw.trim().toLowerCase();
+        final String email = userEmail.trim().toLowerCase();
 
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new AccessDeniedException("User not found: " + email));
 
-        // 2) normalize optional params
         Instant now = Instant.now();
 
         String systemPrompt = (req.getSystemPrompt() == null || req.getSystemPrompt().isBlank())
@@ -89,57 +80,61 @@ public class ChatServiceImpl implements ChatService {
 
         Long requestedSessionId = req.getChatSessionId();
 
-        // 3) load/create session (must belong to this user)
+        // 1) load/create session (must belong to this user)
         ChatSession session;
         if (requestedSessionId == null) {
             session = new ChatSession();
             session.setUser(user);
             session.setModel(model);
-
             session.setTitle(buildDefaultTitle(message));
             session.setCreatedAt(now);
             session.setUpdatedAt(now);
+
             session = sessionRepo.save(session);
         } else {
             session = sessionRepo.findByIdAndUser_Id(requestedSessionId, user.getId())
                     .orElseThrow(() -> new AccessDeniedException(
                             "Session not found or access denied: " + requestedSessionId));
-            session.setUpdatedAt(now);
 
+            session.setUpdatedAt(now);
+            // model можно либо оставить прежний, либо обновлять:
+            // session.setModel(model);
         }
 
-        // 4) save USER message
+        // 2) save USER message
         ChatMessage userMsg = new ChatMessage();
         userMsg.setSession(session);
+        userMsg.setUser(user);                // ✅ важно если есть user_id
         userMsg.setRole(MessageRole.USER);
         userMsg.setContent(message);
         userMsg.setCreatedAt(now);
         messageRepo.save(userMsg);
 
-        // 5) call AI
+        // 3) call AI
         String answer = aiClient.generate(message, systemPrompt, model);
         if (answer == null || answer.isBlank()) {
             answer = "(Empty response)";
         }
 
-        // 6) save AI message
+        // 4) save AI message
         ChatMessage aiMsg = new ChatMessage();
         aiMsg.setSession(session);
+        aiMsg.setUser(user);                  // ✅ важно если есть user_id
         aiMsg.setRole(MessageRole.ASSISTANT);
         aiMsg.setContent(answer);
-        aiMsg.setCreatedAt(Instant.now());
+        aiMsg.setCreatedAt(now);
         messageRepo.save(aiMsg);
 
-        // 7) update session updatedAt
-        session.setUpdatedAt(Instant.now());
+        // 5) bump updatedAt once
+        session.setUpdatedAt(now);
         sessionRepo.save(session);
 
-        // 8) response
         ChatResponse resp = new ChatResponse(answer);
         resp.setChatSessionId(session.getId());
         resp.setModel(model);
         return resp;
     }
+
     private String buildDefaultTitle(String userMessage) {
         if (userMessage == null || userMessage.isBlank()) return "New chat";
         String t = userMessage.trim();
@@ -224,14 +219,23 @@ public class ChatServiceImpl implements ChatService {
     @Override
     @Transactional
     public void deleteSession(Long sessionId, String userEmail){
-        ChatSession s = sessionRepo.findById(sessionId)
-                .orElseThrow(() -> new IllegalArgumentException("Session not found: " + sessionId));
-
-        if (!s.getUser().getEmail().equalsIgnoreCase(userEmail)) {
-            throw new org.springframework.security.access.AccessDeniedException("Not your session");
+        if (sessionId == null) {
+            throw new IllegalArgumentException("Session id is required");
         }
-        messageRepo.deleteBySession_Id(sessionId);
+        if (userEmail == null || userEmail.isBlank()) {
+            throw new org.springframework.security.access.AccessDeniedException("User email is required");
+        }
+
+        String email = userEmail.trim().toLowerCase();
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new org.springframework.security.access.AccessDeniedException("User not found"));
+
+        ChatSession s = sessionRepo.findByIdAndUser_Id(sessionId, user.getId())
+                .orElseThrow(() -> new org.springframework.security.access.AccessDeniedException(
+                        "Session not found or not your session: " + sessionId));
         sessionRepo.delete(s);
+
+
 
     }
 }
