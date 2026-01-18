@@ -80,7 +80,7 @@ class ChatServiceImplTest {
         req.setModel(" gemini-2.5-flash ");
 
         User u = user(10L, "test@email.com");
-        when(userRepository.findByEmail("test@email.com")).thenReturn(Optional.of(u));
+        when(userRepository.findByEmail(eq("test@email.com"))).thenReturn(Optional.of(u));
 
         // sessionRepo.save(new ChatSession()) -> return with id
         when(sessionRepo.save(any(ChatSession.class))).thenAnswer(inv -> {
@@ -93,7 +93,7 @@ class ChatServiceImplTest {
                 .thenReturn("Hi! How can I help?");
 
         // when
-        ChatResponse resp = service.chat(req, "ignored_userEmail_param");
+        ChatResponse resp = service.chat(req, "TEST@Email.com");
 
         // then
         assertNotNull(resp);
@@ -128,9 +128,6 @@ class ChatServiceImplTest {
 
     @Test
     void chat_withExistingSession_checksOwnership_updatesSession_savesMessages() {
-        // given
-        setAuthEmail("user@mail.com");
-
         ChatRequest req = new ChatRequest();
         req.setMessage("Question?");
         req.setChatSessionId(555L);
@@ -152,7 +149,7 @@ class ChatServiceImplTest {
         when(sessionRepo.save(any(ChatSession.class))).thenAnswer(inv -> inv.getArgument(0));
 
         // when
-        ChatResponse resp = service.chat(req, "ignored");
+        ChatResponse resp = service.chat(req, "user@mail.com");
 
         // then
         assertEquals("Answer!", resp.getReply());
@@ -176,19 +173,15 @@ class ChatServiceImplTest {
 
     @Test
     void chat_noAuthentication_throwsAccessDenied() {
-        SecurityContextHolder.clearContext(); // no auth
-
         ChatRequest req = new ChatRequest();
         req.setMessage("hi");
 
-        assertThrows(AccessDeniedException.class, () -> service.chat(req, "x"));
+        assertThrows(AccessDeniedException.class, () -> service.chat(req, "   "));
         verifyNoInteractions(userRepository, sessionRepo, messageRepo, aiClient);
     }
 
     @Test
     void chat_aiReturnsBlank_savesEmptyResponseFallback() {
-        setAuthEmail("u@u.com");
-
         ChatRequest req = new ChatRequest();
         req.setMessage("hi");
 
@@ -202,7 +195,7 @@ class ChatServiceImplTest {
 
         when(aiClient.generate(eq("hi"), isNull(), eq("gemini-2.5-flash"))).thenReturn("   ");
 
-        ChatResponse resp = service.chat(req, "x");
+        ChatResponse resp = service.chat(req, "u@u.com");
         assertEquals("(Empty response)", resp.getReply());
 
         ArgumentCaptor<ChatMessage> msgCaptor = ArgumentCaptor.forClass(ChatMessage.class);

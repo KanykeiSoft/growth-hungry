@@ -6,6 +6,7 @@ package com.example.growth_hungry.model.chat;
 
 import com.example.growth_hungry.model.User;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -26,6 +27,7 @@ public class ChatSession {
 
     @ManyToOne(optional = false, fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
+    @JsonIgnore
     private User user;
 
     @Column(name = "created_at", nullable = false, updatable = false)
@@ -39,9 +41,11 @@ public class ChatSession {
 
     public ChatSession() {}
 
-    public ChatSession(String title, User user) {
+
+    public ChatSession(String title, User user, String model) {
         this.title = title;
         this.user = user;
+        this.model = model;
     }
 
     @PrePersist

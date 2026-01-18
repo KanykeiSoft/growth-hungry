@@ -2,6 +2,7 @@ package com.example.growth_hungry.model.chat;
 
 
 import com.example.growth_hungry.model.User;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 
 import java.time.Instant;
@@ -28,11 +29,12 @@ public class ChatMessage {
     @Column(name = "role", nullable = false, length = 10)
     private MessageRole role; // USER / ASSISTANT
 
-    @Column(name = "created_at", nullable = false)
+    @Column(name = "created_at", nullable = false,  updatable = false)
     private Instant createdAt;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "session_id", nullable = false)
+    @JsonIgnore
     private ChatSession session;
 
     // так как в таблице есть user_id — лучше тоже замаппить

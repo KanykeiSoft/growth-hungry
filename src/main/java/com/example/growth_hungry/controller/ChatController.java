@@ -9,6 +9,7 @@ import jakarta.validation.Valid;
 import java.security.Principal;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -28,9 +29,8 @@ public class ChatController {
     public ResponseEntity<ChatResponse> chat(@Valid @RequestBody ChatRequest req,
                                              Authentication auth) {
 
-        if (req == null || req.getMessage() == null || req.getMessage().isBlank()) {
-            return ResponseEntity.badRequest()
-                    .body(new ChatResponse("Error: message must not be blank"));
+        if (auth == null || auth.getName() == null || auth.getName().isBlank()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
 
         // auth гарантирован SecurityConfig'ом (иначе до контроллера не дойдёт)
@@ -39,17 +39,22 @@ public class ChatController {
 
     @GetMapping("/sessions")
     public ResponseEntity<List<ChatSessionDto>> getUserSessions(Authentication auth) {
+        if (auth == null || auth.getName() == null || auth.getName().isBlank()) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         return ResponseEntity.ok(chatService.getUserSessions(auth.getName()));
     }
 
     @GetMapping("/sessions/{sessionId}/messages")
     public ResponseEntity<List<ChatMessageDto>> getSessionMessages(@PathVariable Long sessionId,
                                                                    Authentication auth) {
+        if (auth == null || auth.getName() == null || auth.getName().isBlank()) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+
         return ResponseEntity.ok(chatService.getSessionMessages(sessionId, auth.getName()));
     }
     @DeleteMapping("/sessions/{sessionId}")
     public ResponseEntity<Void> deleteSession(@PathVariable Long sessionId,
                                               Authentication auth) {
+        if (auth == null || auth.getName() == null || auth.getName().isBlank()) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+
         chatService.deleteSession(sessionId, auth.getName());
         return ResponseEntity.noContent().build();
     }

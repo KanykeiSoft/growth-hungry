@@ -1,6 +1,7 @@
 package com.example.growth_hungry.dto;
 
 import java.time.Instant;
+import java.util.List;
 
 public class ChatSessionDto {
     private Long id;
@@ -8,6 +9,7 @@ public class ChatSessionDto {
     private Instant updatedAt;
     private String model;      // ✅ NEW
     private Instant createdAt;
+    private List<ChatMessageDto> messages;
 
 
     public String getTitle() {
