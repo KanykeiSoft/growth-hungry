@@ -8,7 +8,7 @@ import java.util.List;
 import java.util.Set;
 
 @Entity
-@Table(name = "course")
+@Table(name = "courses")
 public class Course {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -20,10 +20,10 @@ public class Course {
     @Column(length = 2000)
     private String description;
 
-    @ManyToMany(mappedBy = "enrolledCourses")
+    @ManyToMany(mappedBy = "enrolledCourses", fetch = FetchType.LAZY)
     private Set<User> users = new HashSet<>();
 
-    @OneToMany(mappedBy = "course", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "course", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private List<Section> sections = new ArrayList<>();
 
     public List<Section> getSections() {
@@ -33,17 +33,14 @@ public class Course {
     public void setSections(List<Section> sections) {
         this.sections = sections;
     }
+    protected Course() {}
 
 
-
-
-    public Course(Long id, String title, String description, Set<User> users, Instant createdAt, Instant updatedAt) {
+    public Course(Long id, String title, String description, Set<User> users) {
         this.id = id;
         this.title = title;
         this.description = description;
         this.users = users;
-        this.createdAt = createdAt;
-        this.updatedAt = updatedAt;
     }
 
     @Column(name = "created_at", nullable = false, updatable = false)
