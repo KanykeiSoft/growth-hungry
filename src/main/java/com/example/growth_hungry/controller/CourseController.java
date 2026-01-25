@@ -1,6 +1,7 @@
 package com.example.growth_hungry.controller;
 
 import com.example.growth_hungry.dto.CourseDto;
+import com.example.growth_hungry.dto.SectionDto;
 import com.example.growth_hungry.service.CourseService;
 import java.util.List;
 import org.springframework.http.ResponseEntity;
@@ -25,5 +26,11 @@ public class CourseController {
     @GetMapping("/{id}")
     public ResponseEntity<CourseDto> getCourse(@PathVariable Long id){
         return ResponseEntity.ok(courseService.getCourse(id));
+    }
+
+    @GetMapping("/{courseId}/sections")
+    public ResponseEntity<List<SectionDto>> getSections(
+            @PathVariable Long courseId) {
+        return ResponseEntity.ok(courseService.getSections(courseId));
     }
 }
