@@ -5,25 +5,43 @@ import com.example.growth_hungry.dto.SectionDto;
 import com.example.growth_hungry.model.Course;
 import com.example.growth_hungry.model.Section;
 import com.example.growth_hungry.repository.CourseRepository;
+import com.example.growth_hungry.repository.SectionRepository;
 import com.example.growth_hungry.repository.UserRepository;
 import java.util.List;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 @Service
 public class CourseServiceImp implements CourseService{
 
     private final CourseRepository courseRepository;
+    private final SectionRepository sectionRepository;
 
-    public CourseServiceImp(CourseRepository courseRepository) {
+    public CourseServiceImp(CourseRepository courseRepository, SectionRepository sectionRepository) {
         this.courseRepository = courseRepository;
+        this.sectionRepository = sectionRepository;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<SectionDto> getSections(Long courseId) {
+        Course course = courseRepository.findById(courseId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Course not found: " + courseId));
+        return course.getSections()
+                .stream()
+                .map(this::toSectionDto)
+                .toList();
+
     }
 
     @Override
     @Transactional(readOnly = true)
     public CourseDto getCourse(Long id) {
         Course course = courseRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Course not found: " + id));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Course not found: " + id));
+
         return toCourseDto(course);
     }
     private CourseDto toCourseDto(Course c) {
