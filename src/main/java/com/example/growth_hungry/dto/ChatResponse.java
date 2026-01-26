@@ -1,29 +1,29 @@
 package com.example.growth_hungry.dto;
 
+import java.util.List;
+
 public class ChatResponse {
+
     private String reply;
     private Long chatSessionId;
     private String model;
-    private String title;      // NEW
+    private String title;
     private Boolean isNew;
+    private List<ChatMessageDto> messages;
 
-    // Пустой конструктор (нужен для сериализации)
     public ChatResponse() {
     }
 
-    // Полный конструктор
+    public ChatResponse(String reply) {
+        this.reply = reply;
+    }
+
     public ChatResponse(String reply, Long chatSessionId, String model) {
         this.reply = reply;
         this.chatSessionId = chatSessionId;
         this.model = model;
     }
 
-    // Конструктор только с ответом (удобно при ошибках или быстрых ответах)
-    public ChatResponse(String reply) {
-        this.reply = reply;
-    }
-
-    // Getters / Setters
     public String getReply() {
         return reply;
     }
@@ -47,4 +47,30 @@ public class ChatResponse {
     public void setModel(String model) {
         this.model = model;
     }
+
+    public String getTitle() {
+        return title;
+    }
+
+    public void setTitle(String title) {
+        this.title = title;
+    }
+
+    public Boolean isNew() {
+        return isNew;
+    }
+
+    public void setNew(Boolean aNew) {
+        isNew = aNew;
+    }
+
+    public List<ChatMessageDto> getMessages() {
+        return messages;
+    }
+
+    public void setMessages(List<ChatMessageDto> messages) {
+        this.messages = messages;
+    }
 }
+
+

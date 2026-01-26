@@ -59,4 +59,26 @@ public class ChatController {
         return ResponseEntity.noContent().build();
     }
 
+    // GET /api/chat/sections/{sectionId}
+    @GetMapping("/sections/{sectionId}")
+    public ResponseEntity<ChatResponse> getSectionChat(@PathVariable Long sectionId,
+                                                       Authentication auth) {
+        if (auth == null || auth.getName() == null || auth.getName().isBlank()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        return ResponseEntity.ok(chatService.getSectionChat(sectionId, auth.getName()));
+    }
+
+    // POST /api/chat/sections/{sectionId}/messages
+    @PostMapping("/sections/{sectionId}/messages")
+    public ResponseEntity<ChatResponse> chatInSection(@PathVariable Long sectionId,
+                                                      @Valid @RequestBody ChatRequest req,
+                                                      Authentication auth) {
+        if (auth == null || auth.getName() == null || auth.getName().isBlank()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        return ResponseEntity.ok(chatService.chatInSection(sectionId, req, auth.getName()));
+    }
+
+
 }

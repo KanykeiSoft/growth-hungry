@@ -51,19 +51,85 @@ public class ChatServiceImpl implements ChatService {
     }
 
     @Override
+    public ChatResponse chatInSection(Long sectionId, ChatRequest req, String userEmail) {
+        if (sectionId == null) {
+            throw new IllegalArgumentException("Section id is required");
+        }
+        if (req == null) {
+            throw new IllegalArgumentException("Request must not be null");
+        }
+        if (userEmail == null || userEmail.isBlank()) {
+            throw new IllegalStateException("User email is required");
+        }
+
+        ChatResponse response = new ChatResponse();
+        response.setReply("Not implemented yet");
+        response.setChatSessionId(null);
+
+        return response;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ChatResponse getSectionChat(Long sectionId, String userEmail) {
+        if (sectionId == null) {
+            throw new IllegalArgumentException("Section id is required");
+        }
+        if (userEmail == null || userEmail.isBlank()) {
+            throw new IllegalStateException("User email is required");
+        }
+
+        String email = userEmail.trim().toLowerCase();
+
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() ->
+                        new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not found"));
+
+        ChatSession session = sessionRepo
+                .findByUser_IdAndSectionId(user.getId(), sectionId)
+                .orElse(null);
+
+        ChatResponse resp = new ChatResponse();
+
+        // если чата ещё нет — вернуть пустой
+        if (session == null) {
+            resp.setChatSessionId(null);
+            resp.setMessages(List.of());
+            return resp;
+        }
+
+        List<ChatMessage> msgs =
+                messageRepo.findBySession_IdOrderByCreatedAtAsc(session.getId());
+
+        List<ChatMessageDto> dto = msgs.stream().map(m -> {
+            ChatMessageDto d = new ChatMessageDto();
+            d.setId(m.getId());
+            d.setRole(m.getRole());          // ✅ enum → enum
+            d.setContent(m.getContent());
+            d.setCreatedAt(m.getCreatedAt());
+            return d;
+        }).toList();
+
+        resp.setChatSessionId(session.getId());
+        resp.setMessages(dto);
+        return resp;
+    }
+
+
+    @Override
     @Transactional
     public ChatResponse chat(ChatRequest req, String userEmail) {
-        if (req == null) throw new IllegalArgumentException("Request must not be null");
+            if (req == null) throw new IllegalArgumentException("Request must not be null");
 
-        String message = req.getMessage() == null ? null : req.getMessage().trim();
-        if (message == null || message.isBlank()) {
-            throw new IllegalArgumentException("Message must not be blank");
-        }
+            String message = req.getMessage() == null ? null : req.getMessage().trim();
+            if (message == null || message.isBlank()) {
+                throw new IllegalArgumentException("Message must not be blank");
+            }
 
-        if (userEmail == null || userEmail.isBlank()) {
-            throw new AccessDeniedException("User is not authenticated");
-        }
-        final String email = userEmail.trim().toLowerCase();
+            if (userEmail == null || userEmail.isBlank()) {
+                throw new AccessDeniedException("User is not authenticated");
+            }
+            final String email = userEmail.trim().toLowerCase();
 
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new AccessDeniedException("User not found: " + email));
@@ -168,7 +234,7 @@ public class ChatServiceImpl implements ChatService {
             dto.setModel(s.getModel());
             dto.setCreatedAt(s.getCreatedAt());
 
-            // 💡 на случай если updatedAt вдруг null (чтобы фронт не падал/не сортировал криво)
+
             dto.setUpdatedAt(s.getUpdatedAt() != null ? s.getUpdatedAt() : s.getCreatedAt());
 
             result.add(dto);

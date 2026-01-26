@@ -30,6 +30,17 @@ public class ChatSession {
     @JsonIgnore
     private User user;
 
+    public Long getSectionId() {
+        return sectionId;
+    }
+
+    public void setSectionId(Long sectionId) {
+        this.sectionId = sectionId;
+    }
+
+    @Column(name="section_id", nullable=false)
+    private Long sectionId;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 

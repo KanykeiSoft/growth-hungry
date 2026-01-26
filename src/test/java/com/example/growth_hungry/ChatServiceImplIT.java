@@ -1,4 +1,4 @@
-package UsersTest;
+package com.example.growth_hungry;
 
 import com.example.growth_hungry.model.User;
 import com.example.growth_hungry.model.chat.ChatMessage;
