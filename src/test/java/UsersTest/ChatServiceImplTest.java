@@ -14,7 +14,6 @@ import com.example.growth_hungry.repository.ChatMessageRepository;
 import com.example.growth_hungry.repository.ChatSessionRepository;
 import com.example.growth_hungry.repository.UserRepository;
 import com.example.growth_hungry.service.AiClient;
-import com.example.growth_hungry.service.ChatService;
 import com.example.growth_hungry.service.ChatServiceImpl;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.extension.ExtendWith;
