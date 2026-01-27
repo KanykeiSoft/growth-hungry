@@ -19,6 +19,7 @@ import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.*;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -303,6 +304,138 @@ class ChatServiceImplTest {
         ResponseStatusException ex = assertThrows(ResponseStatusException.class,
                 () -> service.getSessionMessages(77L, "a@a.com"));
         assertEquals(404, ex.getStatusCode().value());
+    }
+
+    @Test
+    void chatInSection_sectionIdNull_shouldThrow() {
+        ChatRequest req = new ChatRequest();
+
+        // Проверяем: если sectionId = null → должно выбросить исключение
+        assertThrows(IllegalArgumentException.class,
+                () -> service.chatInSection(null, req, "a@test.com"));
+    }
+
+    @Test
+    void chatInSection_reqNull_shouldThrow() {
+        // Проверяем: если req = null → IllegalArgumentException
+        assertThrows(IllegalArgumentException.class,
+                () -> service.chatInSection(1L, null, "a@test.com"));
+    }
+
+    @Test
+    void chatInSection_emailBlank_shouldThrow() {
+        ChatRequest req = new ChatRequest();
+
+        // Проверяем: если email пустой → IllegalStateException
+        assertThrows(IllegalStateException.class,
+                () -> service.chatInSection(1L, req, "   "));
+    }
+
+    @Test
+    void chatInSection_happyPath_shouldReturnNotImplementedResponse() {
+        ChatRequest req = new ChatRequest();
+
+        // Вызываем метод с нормальными параметрами
+        ChatResponse resp = service.chatInSection(10L, req, "a@test.com");
+
+        // Проверяем что вернул:
+        assertNotNull(resp);
+        assertEquals("Not implemented yet", resp.getReply());
+        assertNull(resp.getChatSessionId());
+    }
+
+    // -------------------- getSectionChat --------------------
+
+    @Test
+    void getSectionChat_sectionIdNull_shouldThrow() {
+        assertThrows(IllegalArgumentException.class,
+                () -> service.getSectionChat(null, "a@test.com"));
+    }
+
+    @Test
+    void getSectionChat_emailBlank_shouldThrow() {
+        assertThrows(IllegalStateException.class,
+                () -> service.getSectionChat(1L, " "));
+    }
+
+    @Test
+    void getSectionChat_userNotFound_shouldThrow401() {
+        // Говорим мок-репозиторию: если ищем "a@test.com" → вернуть Optional.empty()
+        when(userRepository.findByEmail("a@test.com")).thenReturn(Optional.empty());
+
+        // Вызываем метод и ожидаем ResponseStatusException
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class,
+                () -> service.getSectionChat(1L, "A@Test.com"));
+
+        // Проверяем, что это именно 401 Unauthorized
+        assertEquals(HttpStatus.UNAUTHORIZED, ex.getStatusCode());
+    }
+
+    @Test
+    void getSectionChat_sessionNotFound_shouldReturnEmpty() {
+        // Подготовили пользователя
+        User user = new User();
+        user.setId(99L);
+
+        // user найден
+        when(userRepository.findByEmail("a@test.com")).thenReturn(Optional.of(user));
+
+        // но сессия не найдена (Optional.empty())
+        when(sessionRepo.findByUser_IdAndSectionId(99L, 7L)).thenReturn(Optional.empty());
+
+        ChatResponse resp = service.getSectionChat(7L, "  A@TEST.com  ");
+
+        // ожидаем: если чата нет → chatSessionId = null и messages пустые
+        assertNull(resp.getChatSessionId());
+        assertNotNull(resp.getMessages());
+        assertTrue(resp.getMessages().isEmpty());
+
+        // доп. проверка: email нормализовался в lowercase+trim
+        verify(userRepository).findByEmail("a@test.com");
+    }
+
+    @Test
+    void getSectionChat_sessionFound_messagesMappedCorrectly() {
+        // user
+        User user = new User();
+        user.setId(1L);
+
+        // session
+        ChatSession session = new ChatSession();
+        session.setId(555L);
+
+        // message 1
+        ChatMessage m1 = new ChatMessage();
+        m1.setId(10L);
+        m1.setRole(m1.getRole().USER);
+        m1.setContent("hi");
+        m1.setCreatedAt(Instant.parse("2026-01-01T10:00:00Z"));
+
+        // message 2
+        ChatMessage m2 = new ChatMessage();
+        m2.setId(11L);
+        m2.setRole(m2.getRole().ASSISTANT);
+        m2.setContent("hello");
+        m2.setCreatedAt(Instant.parse("2026-01-01T10:00:01Z"));
+
+        // Настраиваем поведение моков
+        when(userRepository.findByEmail("a@test.com")).thenReturn(Optional.of(user));
+        when(sessionRepo.findByUser_IdAndSectionId(1L, 3L)).thenReturn(Optional.of(session));
+        when(messageRepo.findBySession_IdOrderByCreatedAtAsc(555L))
+                .thenReturn(List.of(m1, m2));
+
+        // Действие
+        ChatResponse resp = service.getSectionChat(3L, "A@test.com");
+
+        // Проверки
+        assertEquals(555L, resp.getChatSessionId());
+        assertEquals(2, resp.getMessages().size());
+
+        ChatMessageDto d1 = resp.getMessages().get(0);
+        assertEquals(10L, d1.getId());
+        assertEquals(d1.getRole().USER, d1.getRole());
+        assertEquals("hi", d1.getContent());
+        assertEquals(m1.getCreatedAt(), d1.getCreatedAt());
     }
 
 
