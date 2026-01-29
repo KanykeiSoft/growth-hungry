@@ -21,6 +21,9 @@ public class Section {
         this.content = content;
         this.course = course;
     }
+    protected Section() {
+    }
+
 
     public Long getId() {
         return id;
