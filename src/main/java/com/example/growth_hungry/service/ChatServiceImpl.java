@@ -4,12 +4,14 @@ import com.example.growth_hungry.dto.ChatMessageDto;
 import com.example.growth_hungry.dto.ChatRequest;
 import com.example.growth_hungry.dto.ChatResponse;
 import com.example.growth_hungry.dto.ChatSessionDto;
+import com.example.growth_hungry.model.Section;
 import com.example.growth_hungry.model.User;
 import com.example.growth_hungry.model.chat.ChatMessage;
 import com.example.growth_hungry.model.chat.ChatSession;
 import com.example.growth_hungry.model.chat.MessageRole;
 import com.example.growth_hungry.repository.ChatMessageRepository;
 import com.example.growth_hungry.repository.ChatSessionRepository;
+import com.example.growth_hungry.repository.SectionRepository;
 import com.example.growth_hungry.repository.UserRepository;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -39,35 +41,57 @@ public class ChatServiceImpl implements ChatService {
     private final ChatMessageRepository messageRepo;
     private final UserRepository userRepository;
     private final AiClient aiClient;
+    private final SectionRepository sectionRepository;
 
     public ChatServiceImpl(ChatSessionRepository sessionRepo,
                            ChatMessageRepository messageRepo,
                            UserRepository userRepository,
-                           AiClient aiClient) {
+                           AiClient aiClient, SectionRepository sectionRepository) {
         this.sessionRepo = sessionRepo;
         this.messageRepo = messageRepo;
         this.userRepository = userRepository;
         this.aiClient = aiClient;
+        this.sectionRepository = sectionRepository;
     }
 
     @Override
     public ChatResponse chatInSection(Long sectionId, ChatRequest req, String userEmail) {
-        if (sectionId == null) {
-            throw new IllegalArgumentException("Section id is required");
-        }
-        if (req == null) {
-            throw new IllegalArgumentException("Request must not be null");
-        }
-        if (userEmail == null || userEmail.isBlank()) {
+        if (sectionId == null) throw new IllegalArgumentException("Section id is required");
+        if (req == null || req.getMessage() == null || req.getMessage().isBlank())
+            throw new IllegalArgumentException("Message is required");
+        if (userEmail == null || userEmail.isBlank())
             throw new IllegalStateException("User email is required");
-        }
 
+        // 1) достаем секцию
+        Section section = sectionRepository.findById(sectionId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Section not found"));
+
+        String sectionContent = section.getContent(); // <-- если у тебя другое поле: getText()/getBody()
+
+        // 2) формируем system prompt (инструкция)
+        String systemPrompt =
+                "You are an AI tutor inside a learning platform.\n" +
+                        "Answer the user's question using the SECTION CONTENT.\n" +
+                        "If the answer is not in the content, say you cannot find it in this section.\n" +
+                        "Be clear and concise.";
+
+        // 3) message (контекст + вопрос)
+        String message =
+                "SECTION CONTENT:\n" +
+                        (sectionContent == null ? "" : sectionContent) +
+                        "\n\nUSER QUESTION:\n" +
+                        req.getMessage().trim();
+
+        // 4) ВЫЗОВ ИИ
+        String reply = aiClient.generate(message, systemPrompt, null); // model=null -> default
+
+        // 5) вернуть ответ (пока без сохранения в БД)
         ChatResponse response = new ChatResponse();
-        response.setReply("Not implemented yet");
-        response.setChatSessionId(null);
-
+        response.setChatSessionId(null); // или реальный sessionId если сохраняешь сессии
+        response.setReply(reply == null ? "" : reply);
         return response;
     }
+
 
     @Override
     @Transactional(readOnly = true)
