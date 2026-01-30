@@ -5,23 +5,26 @@ import jakarta.persistence.*;
 @Entity
 @Table(name = "section")
 public class Section {
+
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(columnDefinition = "TEXT")
+    @Column(columnDefinition = "TEXT", nullable = false)
     private String content;
 
-    @ManyToOne(optional = false)
-    @JoinColumn(name = "course_id")
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "course_id", nullable = false)
     private Course course;
 
-    public Section(Long id, String content, Course course) {
-        this.id = id;
+    protected Section() {
+        // required by JPA
+    }
+
+    public Section(String content, Course course) {
         this.content = content;
         this.course = course;
-    }
-    protected Section() {
     }
 
 
