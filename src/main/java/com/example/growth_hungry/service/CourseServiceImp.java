@@ -59,9 +59,9 @@ public class CourseServiceImp implements CourseService{
 
     private SectionDto toSectionDto(Section s) {
         SectionDto dto = new SectionDto();
-        dto.id = s.getId();
-        dto.content = s.getContent();
-        dto.courseId = s.getCourse().getId();
+        dto.setId(s.getId());
+        dto.setContent(s.getContent());
+        dto.setCourseId(s.getCourse() == null ? null : s.getCourse().getId());
         return dto;
     }
 

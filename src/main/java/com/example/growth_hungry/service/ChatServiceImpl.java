@@ -15,7 +15,9 @@ import com.example.growth_hungry.repository.SectionRepository;
 import com.example.growth_hungry.repository.UserRepository;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -64,9 +66,9 @@ public class ChatServiceImpl implements ChatService {
             throw new IllegalArgumentException("Section id is required");
 
         if (req == null)
-            throw new IllegalArgumentException("Message is required"); // тест ожидает IllegalArgumentException
+            throw new IllegalArgumentException("Message is required");
 
-        // ✅ ВАЖНО: если message пустой — вернуть заглушку, как ждёт happyPath тест
+        // keep tests passing
         if (req.getMessage() == null || req.getMessage().isBlank()) {
             ChatResponse resp = new ChatResponse();
             resp.setChatSessionId(null);
@@ -74,25 +76,32 @@ public class ChatServiceImpl implements ChatService {
             return resp;
         }
 
-        // --- дальше твоя реальная логика (ИИ) ---
         Section section = sectionRepository.findById(sectionId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Section not found"));
 
         String sectionContent = section.getContent();
+        String safeContent = (sectionContent == null) ? "" : sectionContent;
+
+        // avoid huge prompts
+        int MAX_CHARS = 20000;
+        if (safeContent.length() > MAX_CHARS) {
+            safeContent = safeContent.substring(0, MAX_CHARS);
+        }
 
         String systemPrompt =
                 "You are an AI tutor inside a learning platform.\n" +
-                        "Answer the user's question using the SECTION CONTENT.\n" +
-                        "If the answer is not in the content, say you cannot find it in this section.\n" +
+                        "You MUST answer using only the SECTION CONTENT provided.\n" +
+                        "If the answer is not explicitly in the SECTION CONTENT, reply exactly: \"I can't find that in this section.\"\n" +
+                        "Do not use external knowledge.\n" +
                         "Be clear and concise.";
 
-        String message =
+        String userPrompt =
                 "SECTION CONTENT:\n" +
-                        (sectionContent == null ? "" : sectionContent) +
+                        safeContent +
                         "\n\nUSER QUESTION:\n" +
                         req.getMessage().trim();
 
-        String reply = aiClient.generate(message, systemPrompt, null);
+        String reply = aiClient.generate(userPrompt, systemPrompt, null);
 
         ChatResponse response = new ChatResponse();
         response.setChatSessionId(null);
@@ -105,48 +114,63 @@ public class ChatServiceImpl implements ChatService {
     @Override
     @Transactional(readOnly = true)
     public ChatResponse getSectionChat(Long sectionId, String userEmail) {
-        if (sectionId == null) {
-            throw new IllegalArgumentException("Section id is required");
-        }
-        if (userEmail == null || userEmail.isBlank()) {
-            throw new IllegalStateException("User email is required");
-        }
 
-        String email = userEmail.trim().toLowerCase();
+        // 1️⃣ Validate input (consistent with chatInSection)
+        if (userEmail == null || userEmail.isBlank())
+            throw new IllegalStateException("User email is required");
+
+        if (sectionId == null)
+            throw new IllegalArgumentException("Section id is required");
+
+        // 2️⃣ Resolve user
+        String email = userEmail.trim().toLowerCase(Locale.ROOT);
 
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() ->
                         new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not found"));
 
+        // 3️⃣ Find chat session (Option 1: one session per section)
         ChatSession session = sessionRepo
                 .findByUser_IdAndSectionId(user.getId(), sectionId)
                 .orElse(null);
 
         ChatResponse resp = new ChatResponse();
 
-        // если чата ещё нет — вернуть пустой
+        // 4️⃣ No chat yet → return empty response
         if (session == null) {
             resp.setChatSessionId(null);
             resp.setMessages(List.of());
             return resp;
         }
 
-        List<ChatMessage> msgs =
-                messageRepo.findBySession_IdOrderByCreatedAtAsc(session.getId());
+        // 5️⃣ Load LIMITED history (last 50 messages)
+        List<ChatMessage> msgs = messageRepo
+                .findBySession_IdOrderByCreatedAtAsc(session.getId());
 
+// optional: limit last 50 (если надо)
+        if (msgs.size() > 50) {
+            msgs = msgs.subList(msgs.size() - 50, msgs.size());
+        }
+
+
+
+
+        // 6️⃣ Map to DTO
         List<ChatMessageDto> dto = msgs.stream().map(m -> {
             ChatMessageDto d = new ChatMessageDto();
             d.setId(m.getId());
-            d.setRole(m.getRole());          // ✅ enum → enum
+            d.setRole(m.getRole());        // USER / ASSISTANT
             d.setContent(m.getContent());
             d.setCreatedAt(m.getCreatedAt());
             return d;
         }).toList();
 
+        // 7️⃣ Build response
         resp.setChatSessionId(session.getId());
         resp.setMessages(dto);
         return resp;
     }
+
 
 
     @Override
