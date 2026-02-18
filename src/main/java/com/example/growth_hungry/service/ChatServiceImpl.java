@@ -75,38 +75,58 @@ public class ChatServiceImpl implements ChatService {
             resp.setReply("Not implemented yet");
             return resp;
         }
+        String email = userEmail.trim().toLowerCase(Locale.ROOT);
 
+        //Find user
+        User user =  userRepository.findByEmail(email)
+                .orElseThrow(() ->
+                        new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not found"));
+
+        //find section
         Section section = sectionRepository.findById(sectionId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Section not found"));
+                .orElseThrow(() ->
+                        new ResponseStatusException(HttpStatus.NOT_FOUND, "Section not found"));
 
-        String sectionContent = section.getContent();
-        String safeContent = (sectionContent == null) ? "" : sectionContent;
+        //find session
+        ChatSession session = sessionRepo.findByUser_IdAndSectionId(user.getId(), sectionId)
+                .orElse(null);
+        String model = "gemini-2.5-flash";
+        if (session == null){
+            session = new ChatSession();
+            session.setUser(user);
+            session.setSectionId(sectionId);
+            session.setModel(model);
+            session = sessionRepo.save(session);
 
-        // avoid huge prompts
-        int MAX_CHARS = 20000;
-        if (safeContent.length() > MAX_CHARS) {
-            safeContent = safeContent.substring(0, MAX_CHARS);
         }
 
-        String systemPrompt =
-                "You are an AI tutor inside a learning platform.\n" +
-                        "You MUST answer using only the SECTION CONTENT provided.\n" +
-                        "If the answer is not explicitly in the SECTION CONTENT, reply exactly: \"I can't find that in this section.\"\n" +
-                        "Do not use external knowledge.\n" +
-                        "Be clear and concise.";
+        String userMessage = req.getMessage().trim();
+            ChatMessage message = new ChatMessage();
+            message.setSession(session);
+            message.setRole(MessageRole.USER);
+            message.setContent(userMessage);
+            message.setCreatedAt(Instant.now());
+            messageRepo.save(message);
 
-        String userPrompt =
-                "SECTION CONTENT:\n" +
-                        safeContent +
-                        "\n\nUSER QUESTION:\n" +
-                        req.getMessage().trim();
+            String sectionContent = section.getContent();
+            String prompt = sectionContent + "\n\nUser question: " + userMessage;
+            String assistantAnswer = aiClient.generate(prompt,
+                    "You are a helpful course assistant. Answer based on the section content.",
+                    null
+                    );
+            ChatMessage assistantMsg = new ChatMessage();
+            assistantMsg.setSession(session);
+            assistantMsg.setRole(MessageRole.ASSISTANT);
+            assistantMsg.setContent(assistantAnswer);
+            assistantMsg.setCreatedAt(Instant.now());
+            messageRepo.save(assistantMsg);
 
-        String reply = aiClient.generate(userPrompt, systemPrompt, null);
+        ChatResponse resp = new ChatResponse();
+        resp.setChatSessionId(session.getId());
+        resp.setReply(assistantAnswer);
+        return resp;
 
-        ChatResponse response = new ChatResponse();
-        response.setChatSessionId(null);
-        response.setReply(reply == null ? "" : reply);
-        return response;
+
     }
 
 
