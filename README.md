@@ -1,18 +1,30 @@
-README.md
-# 🌱 Growth Hungry — Spring Boot Project
+# Growth Hungry — Education Platform API
 
-## 📖 Overview
-This is a learning project built with **Java** and **Spring Boot**.  
-The goal is to practice Git, version control, and basic backend setup.
+## Overview
+Backend REST API for managing educational content such as courses and sections.  
+Built using Java and Spring Boot following layered architecture principles.
 
-## ⚙️ Tech Stack
-- Java 17+
+The project demonstrates backend development skills including REST API design, database integration, validation, and security configuration.
+
+## Tech Stack
+- Java 17
 - Spring Boot
+- Spring Data JPA (Hibernate)
+- H2 / PostgreSQL
 - Maven
-- H2 Database (in-memory)
+- Spring Security
+- Swagger (OpenAPI)
+- JUnit 5 / Mockito
 - Git & GitHub
 
-## 🚀 How to Run
-```bash
+## Features
+- CRUD operations for Courses and Sections
+- Layered architecture (Controller → Service → Repository)
+- DTO validation
+- Global exception handling
+- Database integration with JPA
+- Secure endpoints configuration
+- API documentation with Swagger
+
+## How to Run
 mvn spring-boot:run
-trigger CI
