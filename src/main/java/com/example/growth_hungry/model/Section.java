@@ -18,7 +18,7 @@ public class Section {
     @JoinColumn(name = "course_id", nullable = false)
     private Course course;
 
-    protected Section() {
+    public Section() {
         // required by JPA
     }
 

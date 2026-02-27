@@ -5,6 +5,7 @@ import com.example.growth_hungry.dto.ChatRequest;
 import com.example.growth_hungry.dto.ChatResponse;
 import com.example.growth_hungry.dto.ChatSessionDto;
 
+import com.example.growth_hungry.model.Section;
 import com.example.growth_hungry.model.User;
 
 import com.example.growth_hungry.model.chat.ChatMessage;
@@ -12,6 +13,7 @@ import com.example.growth_hungry.model.chat.ChatSession;
 import com.example.growth_hungry.model.chat.MessageRole;
 import com.example.growth_hungry.repository.ChatMessageRepository;
 import com.example.growth_hungry.repository.ChatSessionRepository;
+import com.example.growth_hungry.repository.SectionRepository;
 import com.example.growth_hungry.repository.UserRepository;
 import com.example.growth_hungry.service.AiClient;
 import com.example.growth_hungry.service.ChatServiceImpl;
@@ -42,6 +44,8 @@ class ChatServiceImplTest {
     UserRepository userRepository;
     @Mock
     AiClient aiClient;
+    @Mock
+    SectionRepository sectionRepository;
 
     @InjectMocks
     ChatServiceImpl service;
@@ -334,14 +338,28 @@ class ChatServiceImplTest {
     @Test
     void chatInSection_happyPath_shouldReturnNotImplementedResponse() {
         ChatRequest req = new ChatRequest();
+        req.setMessage("hello");
+        User user = new User();
+        user.setId(1L);
+        user.setEmail("a@test.com");
 
-        // Вызываем метод с нормальными параметрами
+        Section section = new Section();
+        section.setId(10L);
+        section.setContent("content");
+
+        ChatSession session = new ChatSession();
+        session.setId(99L);
+
+        when(userRepository.findByEmail("a@test.com")).thenReturn(Optional.of(user));
+        when(sectionRepository.findById(10L)).thenReturn(Optional.of(section));
+        when(sessionRepo.findByUser_IdAndSectionId(1L, 10L)).thenReturn(Optional.of(session));
+        when(aiClient.generate(anyString(), anyString(), isNull())).thenReturn("AI answer");
+
         ChatResponse resp = service.chatInSection(10L, req, "a@test.com");
 
-        // Проверяем что вернул:
         assertNotNull(resp);
-        assertEquals("Not implemented yet", resp.getReply());
-        assertNull(resp.getChatSessionId());
+        assertEquals(99L, resp.getChatSessionId());
+        assertEquals("AI answer", resp.getReply());
     }
 
     // -------------------- getSectionChat --------------------

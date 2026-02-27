@@ -68,20 +68,13 @@ public class ChatServiceImpl implements ChatService {
         if (req == null)
             throw new IllegalArgumentException("Message is required");
 
-        // keep tests passing
-        if (req.getMessage() == null || req.getMessage().isBlank()) {
-            ChatResponse resp = new ChatResponse();
-            resp.setChatSessionId(null);
-            resp.setReply("Not implemented yet");
-            return resp;
-        }
         String email = userEmail.trim().toLowerCase(Locale.ROOT);
 
         //Find user
         User user =  userRepository.findByEmail(email)
                 .orElseThrow(() ->
                         new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not found"));
-
+ // по секции и пользователя ищем чат если нет создаем новый
         //find section
         Section section = sectionRepository.findById(sectionId)
                 .orElseThrow(() ->
