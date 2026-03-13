@@ -5,6 +5,7 @@ import com.example.growth_hungry.dto.ChatRequest;
 import com.example.growth_hungry.dto.ChatResponse;
 import com.example.growth_hungry.dto.ChatSessionDto;
 import com.example.growth_hungry.service.ChatService;
+import com.example.growth_hungry.service.GeneralChatService;
 import jakarta.validation.Valid;
 import java.security.Principal;
 import java.util.List;
@@ -20,46 +21,49 @@ import org.springframework.web.bind.annotation.*;
 public class ChatController {
 
     private final ChatService chatService;
+    private  final GeneralChatService generalChatService;
 
-    public ChatController(ChatService chatService) {
+    public ChatController(ChatService chatService, GeneralChatService generalChatService) {
         this.chatService = chatService;
+        this.generalChatService = generalChatService;
     }
 
     @PostMapping
     public ResponseEntity<ChatResponse> chat(@Valid @RequestBody ChatRequest req,
                                              Authentication auth) {
-
         if (auth == null || auth.getName() == null || auth.getName().isBlank()) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
-
-        // auth гарантирован SecurityConfig'ом (иначе до контроллера не дойдёт)
-        return ResponseEntity.ok(chatService.chat(req, auth.getName()));
+        return ResponseEntity.ok(generalChatService.chat(req, auth.getName()));
     }
 
     @GetMapping("/sessions")
     public ResponseEntity<List<ChatSessionDto>> getUserSessions(Authentication auth) {
-        if (auth == null || auth.getName() == null || auth.getName().isBlank()) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        return ResponseEntity.ok(chatService.getUserSessions(auth.getName()));
+        if (auth == null || auth.getName() == null || auth.getName().isBlank()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        return ResponseEntity.ok(generalChatService.getUserSessions(auth.getName()));
     }
 
     @GetMapping("/sessions/{sessionId}/messages")
     public ResponseEntity<List<ChatMessageDto>> getSessionMessages(@PathVariable Long sessionId,
                                                                    Authentication auth) {
-        if (auth == null || auth.getName() == null || auth.getName().isBlank()) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-
-        return ResponseEntity.ok(chatService.getSessionMessages(sessionId, auth.getName()));
+        if (auth == null || auth.getName() == null || auth.getName().isBlank()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        return ResponseEntity.ok(generalChatService.getSessionMessages(sessionId, auth.getName()));
     }
+
     @DeleteMapping("/sessions/{sessionId}")
     public ResponseEntity<Void> deleteSession(@PathVariable Long sessionId,
                                               Authentication auth) {
-        if (auth == null || auth.getName() == null || auth.getName().isBlank()) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-
-        chatService.deleteSession(sessionId, auth.getName());
+        if (auth == null || auth.getName() == null || auth.getName().isBlank()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        generalChatService.deleteSession(sessionId, auth.getName());
         return ResponseEntity.noContent().build();
     }
 
-    // GET /api/chat/sections/{sectionId}
     @GetMapping("/sections/{sectionId}")
     public ResponseEntity<ChatResponse> getSectionChat(@PathVariable Long sectionId,
                                                        Authentication auth) {
@@ -69,7 +73,6 @@ public class ChatController {
         return ResponseEntity.ok(chatService.getSectionChat(sectionId, auth.getName()));
     }
 
-    // POST /api/chat/sections/{sectionId}/messages
     @PostMapping("/sections/{sectionId}/messages")
     public ResponseEntity<ChatResponse> chatInSection(@PathVariable Long sectionId,
                                                       @Valid @RequestBody ChatRequest req,
