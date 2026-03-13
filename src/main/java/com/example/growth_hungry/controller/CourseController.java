@@ -33,4 +33,5 @@ public class CourseController {
             @PathVariable Long courseId) {
         return ResponseEntity.ok(courseService.getSections(courseId));
     }
+
 }

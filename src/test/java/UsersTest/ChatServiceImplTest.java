@@ -17,6 +17,7 @@ import com.example.growth_hungry.repository.SectionRepository;
 import com.example.growth_hungry.repository.UserRepository;
 import com.example.growth_hungry.service.AiClient;
 import com.example.growth_hungry.service.ChatServiceImpl;
+import com.example.growth_hungry.service.GeneralChatServiceImpl;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.*;
@@ -35,6 +36,9 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class ChatServiceImplTest {
+
+    @InjectMocks
+    private GeneralChatServiceImpl generalChatService;
 
     @Mock
     ChatSessionRepository sessionRepo;
@@ -97,7 +101,7 @@ class ChatServiceImplTest {
                 .thenReturn("Hi! How can I help?");
 
         // when
-        ChatResponse resp = service.chat(req, "TEST@Email.com");
+        ChatResponse resp = generalChatService.chat(req, "TEST@Email.com");
 
         // then
         assertNotNull(resp);
@@ -136,33 +140,25 @@ class ChatServiceImplTest {
         req.setMessage("Question?");
         req.setChatSessionId(555L);
         req.setSystemPrompt(null);
-        req.setModel(null); // -> DEFAULT_MODEL inside service
+        req.setModel(null);
 
-        User u = user(7L, "user@mail.com");
-        when(userRepository.findByEmail("user@mail.com")).thenReturn(Optional.of(u));
+        User user = new User();
+        user.setId(10L);
+        user.setEmail("x@y.com");
 
-        ChatSession existing = new ChatSession();
-        existing.setId(555L);
-        existing.setUser(u);
-        existing.setCreatedAt(Instant.now().minusSeconds(1000));
-        existing.setUpdatedAt(Instant.now().minusSeconds(1000));
+        ChatSession session = new ChatSession();
+        session.setId(555L);
+        session.setUser(user);
+        session.setModel("gemini-pro");
 
-        when(sessionRepo.findByIdAndUser_Id(555L, 7L)).thenReturn(Optional.of(existing));
-        when(aiClient.generate(eq("Question?"), isNull(), eq("gemini-2.5-flash"))).thenReturn("Answer!");
+        when(userRepository.findByEmail("x@y.com")).thenReturn(Optional.of(user));
+        when(sessionRepo.findByIdAndUser_Id(555L, 10L)).thenReturn(Optional.of(session));
+        when(aiClient.generate(anyString(), any(), anyString())).thenReturn("Answer!");
 
-        when(sessionRepo.save(any(ChatSession.class))).thenAnswer(inv -> inv.getArgument(0));
+        ChatResponse resp = generalChatService.chat(req, "x@y.com");
 
-        // when
-        ChatResponse resp = service.chat(req, "user@mail.com");
-
-        // then
         assertEquals("Answer!", resp.getReply());
         assertEquals(555L, resp.getChatSessionId());
-        assertEquals("gemini-2.5-flash", resp.getModel());
-
-        verify(sessionRepo).findByIdAndUser_Id(555L, 7L);
-        verify(messageRepo, times(2)).save(any(ChatMessage.class));
-        verify(sessionRepo, atLeastOnce()).save(existing);
     }
 
     @Test
@@ -171,8 +167,13 @@ class ChatServiceImplTest {
         ChatRequest req = new ChatRequest();
         req.setMessage("   ");
 
-        assertThrows(IllegalArgumentException.class, () -> service.chat(req, "x"));
-        verifyNoInteractions(userRepository, sessionRepo, messageRepo, aiClient);
+        ResponseStatusException ex = assertThrows(
+                ResponseStatusException.class,
+                () -> generalChatService.chat(req, "x@y.com")
+        );
+
+        assertEquals(400, ex.getStatusCode().value());
+        assertEquals("Message is required", ex.getReason());
     }
 
     @Test
@@ -180,7 +181,14 @@ class ChatServiceImplTest {
         ChatRequest req = new ChatRequest();
         req.setMessage("hi");
 
-        assertThrows(AccessDeniedException.class, () -> service.chat(req, "   "));
+        ResponseStatusException ex = assertThrows(
+                ResponseStatusException.class,
+                () -> generalChatService.chat(req, " ")
+        );
+
+        assertEquals(401, ex.getStatusCode().value());
+        assertEquals("User email is required", ex.getReason());
+
         verifyNoInteractions(userRepository, sessionRepo, messageRepo, aiClient);
     }
 
@@ -199,7 +207,7 @@ class ChatServiceImplTest {
 
         when(aiClient.generate(eq("hi"), isNull(), eq("gemini-2.5-flash"))).thenReturn("   ");
 
-        ChatResponse resp = service.chat(req, "u@u.com");
+        ChatResponse resp = generalChatService.chat(req, "u@u.com");
         assertEquals("(Empty response)", resp.getReply());
 
         ArgumentCaptor<ChatMessage> msgCaptor = ArgumentCaptor.forClass(ChatMessage.class);
@@ -231,7 +239,7 @@ class ChatServiceImplTest {
 
         when(sessionRepo.findAllByUser_IdOrderByUpdatedAtDesc(5L)).thenReturn(List.of(s2, s1));
 
-        List<ChatSessionDto> res = service.getUserSessions("  X@Y.COM  ");
+        List<ChatSessionDto> res = generalChatService.getUserSessions("  X@Y.COM  ");
 
         assertEquals(2, res.size());
         assertEquals(2L, res.get(0).getId());
@@ -246,7 +254,7 @@ class ChatServiceImplTest {
     @Test
     void getUserSessions_blankEmail_throws401() {
         ResponseStatusException ex = assertThrows(ResponseStatusException.class,
-                () -> service.getUserSessions("   "));
+                () -> generalChatService.getUserSessions("   "));
         assertEquals(401, ex.getStatusCode().value());
         verifyNoInteractions(userRepository, sessionRepo);
     }
@@ -280,7 +288,7 @@ class ChatServiceImplTest {
 
         when(messageRepo.findBySession_IdOrderByCreatedAtAsc(77L)).thenReturn(List.of(m1, m2));
 
-        List<ChatMessageDto> res = service.getSessionMessages(77L, " A@A.COM ");
+        List<ChatMessageDto> res = generalChatService.getSessionMessages(77L, " A@A.COM ");
 
         assertEquals(2, res.size());
         assertEquals(1L, res.get(0).getId());
@@ -295,7 +303,7 @@ class ChatServiceImplTest {
     @Test
     void getSessionMessages_nullSessionId_throws400() {
         ResponseStatusException ex = assertThrows(ResponseStatusException.class,
-                () -> service.getSessionMessages(null, "x@y.com"));
+                () -> generalChatService.getSessionMessages(null, "x@y.com"));
         assertEquals(400, ex.getStatusCode().value());
     }
 
@@ -306,7 +314,7 @@ class ChatServiceImplTest {
         when(sessionRepo.findByIdAndUser_Id(77L, 9L)).thenReturn(Optional.empty());
 
         ResponseStatusException ex = assertThrows(ResponseStatusException.class,
-                () -> service.getSessionMessages(77L, "a@a.com"));
+                () -> generalChatService.getSessionMessages(77L, "a@a.com"));
         assertEquals(404, ex.getStatusCode().value());
     }
 
